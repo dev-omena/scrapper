@@ -1,0 +1,23 @@
+{
+  "name": "orizon-google-maps-scraper",
+  "version": "1.0.0",
+  "description": "Orizon Multi-Purpose Scraper - Google Maps & Email Extraction",
+  "main": "app.py",
+  "scripts": {
+    "start": "gunicorn --bind 0.0.0.0:$PORT app:app --timeout 300 --workers 2",
+    "dev": "python app.py"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Zubdata/Google-Maps-Scraper.git"
+  },
+  "keywords": [
+    "scraper",
+    "google-maps",
+    "email-extraction",
+    "business-data",
+    "orizon"
+  ],
+  "author": "Orizon",
+  "license": "MIT"
+}

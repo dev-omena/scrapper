@@ -1,0 +1,15 @@
+# Nixpacks Configuration for Railway
+[variables]
+PYTHONPATH = "/app:/app/app"
+
+[phases.setup]
+nixPkgs = ["python310", "chromium", "chromedriver"]
+
+[phases.install]
+cmds = ["pip install -r requirements-deploy.txt"]
+
+[phases.build]
+cmds = ["echo 'Build completed'"]
+
+[start]
+cmd = "gunicorn app:app --bind 0.0.0.0:$PORT --timeout 300 --workers 2"
