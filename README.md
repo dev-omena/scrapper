@@ -1,4 +1,4 @@
-# Zubdata - Google Maps Scraper
+# Orizon- Google Maps Scraper
 
 ## Version: 3.2.0
 
@@ -28,9 +28,9 @@
 ## Note: 
 **Our all scrapers are working, if you find any issue or bug please open an issue with the detail of issue. We will try to resolve it quickly for you.**
 
-<img src="Readme assets/zubdata google maps scraper.jpg" alt="Zubdata open sourced google maps scraper">
+<img src="Readme assets/Orizongoogle maps scraper.jpg" alt="Orizonopen sourced google maps scraper">
 
-Welcome to the Zubdata GitHub Google Maps Scraper repository, an open-source GUI tool built in Python. This tool allows you to extract data from Google Maps using a user-friendly interface.
+Welcome to the OrizonGitHub Google Maps Scraper repository, an open-source GUI tool built in Python. This tool allows you to extract data from Google Maps using a user-friendly interface.
 Documentation can be found at this [link](https://zubdata.com/docs/google-maps-scraper/getting-started/installation/) 🔗
 
 ## Sample Data
