@@ -1,4 +1,7 @@
-from scraper.frontend import Frontend
+try:
+    from scraper.frontend import Frontend
+except ImportError:
+    from app.scraper.frontend import Frontend
 
 
 def main():

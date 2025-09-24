@@ -1,9 +1,16 @@
 from bs4 import BeautifulSoup
-from scraper.error_codes import ERROR_CODES
-from scraper.communicator import Communicator
-from scraper.datasaver import DataSaver
-from scraper.base import Base
-from scraper.common import Common
+try:
+    from scraper.error_codes import ERROR_CODES
+    from scraper.communicator import Communicator
+    from scraper.datasaver import DataSaver
+    from scraper.base import Base
+    from scraper.common import Common
+except ImportError:
+    from app.scraper.error_codes import ERROR_CODES
+    from app.scraper.communicator import Communicator
+    from app.scraper.datasaver import DataSaver
+    from app.scraper.base import Base
+    from app.scraper.common import Common
 import requests
 import re
 

@@ -3,6 +3,7 @@ Email Scraper Module for finding emails from specific domains
 Supports multiple search methods: search engines, direct crawling, and pattern matching
 """
 
+import os
 import re
 import requests
 from urllib.parse import urljoin, urlparse
@@ -65,7 +66,7 @@ class EmailScraper:
         ]
 
     def setup_driver(self):
-        """Setup Selenium WebDriver"""
+        """Setup Selenium WebDriver for Chrome"""
         if self.driver is None:
             chrome_options = Options()
             if self.headless:
@@ -75,19 +76,65 @@ class EmailScraper:
             chrome_options.add_argument('--disable-gpu')
             chrome_options.add_argument('--window-size=1920,1080')
             chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
+            chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+            chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+            chrome_options.add_experimental_option('useAutomationExtension', False)
 
+            # Find Chrome executable
+            chrome_path = self._find_chrome_executable()
+            if chrome_path:
+                chrome_options.binary_location = chrome_path
 
-            import os
-            chrome_bin = os.environ.get("CHROME_BIN")
-            if not chrome_bin or not isinstance(chrome_bin, str):
-                # Fallback for local Windows development
-                if os.name == "nt":
-                    chrome_bin = r"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
-                else:
-                    raise RuntimeError("CHROME_BIN environment variable is not set or not a string")
-            chrome_options.binary_location = chrome_bin
+            # Try multiple initialization methods
+            try:
+                # Try webdriver-manager first
+                from webdriver_manager.chrome import ChromeDriverManager
+                from selenium.webdriver.chrome.service import Service
+                service = Service(ChromeDriverManager().install())
+                self.driver = webdriver.Chrome(service=service, options=chrome_options)
+            except Exception as e:
+                print(f"[DEBUG] webdriver-manager failed in email scraper: {e}")
+                try:
+                    # Try without service
+                    self.driver = webdriver.Chrome(options=chrome_options)
+                except Exception as e2:
+                    print(f"[DEBUG] Chrome initialization failed in email scraper: {e2}")
+                    raise RuntimeError(f"Could not initialize Chrome driver for email scraper: {e2}")
 
-            self.driver = webdriver.Chrome(options=chrome_options)
+    def _find_chrome_executable(self):
+        """Find Chrome executable in different possible locations"""
+        import platform
+        import subprocess
+        
+        system = platform.system().lower()
+        
+        # Check environment variable first
+        chrome_bin = os.environ.get("CHROME_BIN")
+        if chrome_bin and os.path.exists(chrome_bin):
+            return chrome_bin
+        
+        if system == "windows":
+            possible_paths = [
+                r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+                r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+                os.path.expanduser(r"~\AppData\Local\Google\Chrome\Application\chrome.exe")
+            ]
+        else:
+            possible_paths = [
+                "/usr/bin/google-chrome",
+                "/usr/bin/google-chrome-stable", 
+                "/usr/bin/chromium",
+                "/usr/bin/chromium-browser",
+                "/opt/google/chrome/chrome"
+            ]
+        
+        # Check possible paths
+        for path in possible_paths:
+            expanded_path = os.path.expandvars(os.path.expanduser(path))
+            if os.path.exists(expanded_path):
+                return expanded_path
+        
+        return None
 
     def close_driver(self):
         """Close Selenium WebDriver"""

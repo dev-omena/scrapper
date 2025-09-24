@@ -2,11 +2,18 @@
 This module contain the code for frontend
 """
 
-from scraper.communicator import Communicator
+try:
+    from scraper.communicator import Communicator
+    from scraper.scraper import Backend
+    from scraper.common import Common
+except ImportError:
+    from app.scraper.communicator import Communicator
+    from app.scraper.scraper import Backend
+    from app.scraper.common import Common
+import os
+import sys
 import tkinter as tk
 from tkinter import ttk,  WORD
-from scraper.scraper import Backend
-from scraper.common  import Common
 import threading
 
 

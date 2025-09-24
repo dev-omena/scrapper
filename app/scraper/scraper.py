@@ -5,12 +5,18 @@ that will handle scraping process
 
 
 from time import sleep
-from scraper.base import Base
-from scraper.scroller import Scroller
+try:
+    from scraper.base import Base
+    from scraper.scroller import Scroller
+    from settings import DRIVER_EXECUTABLE_PATH
+    from scraper.communicator import Communicator
+except ImportError:
+    from app.scraper.base import Base
+    from app.scraper.scroller import Scroller
+    from app.settings import DRIVER_EXECUTABLE_PATH
+    from app.scraper.communicator import Communicator
 import os
 import subprocess
-from settings import DRIVER_EXECUTABLE_PATH
-from scraper.communicator import Communicator
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
@@ -48,13 +54,28 @@ class Backend(Base):
 
     def find_chrome_executable(self):
         """Find Chrome executable in different possible locations"""
-        possible_paths = [
-            "/usr/bin/google-chrome",
-            "/usr/bin/google-chrome-stable", 
-            "/usr/bin/chromium",
-            "/usr/bin/chromium-browser",
-            "/opt/google/chrome/chrome"
-        ]
+        import platform
+        system = platform.system().lower()
+        
+        if system == "windows":
+            possible_paths = [
+                r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+                r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+                os.path.expanduser(r"~\AppData\Local\Google\Chrome\Application\chrome.exe"),
+                r"C:\Users\%USERNAME%\AppData\Local\Google\Chrome\Application\chrome.exe"
+            ]
+            which_commands = ['chrome', 'google-chrome']
+        else:
+            possible_paths = [
+                "/usr/bin/google-chrome",
+                "/usr/bin/google-chrome-stable", 
+                "/usr/bin/chromium",
+                "/usr/bin/chromium-browser",
+                "/opt/google/chrome/chrome",
+                "/snap/bin/chromium",
+                "/usr/local/bin/chrome"
+            ]
+            which_commands = ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser']
         
         # Check environment variable first
         chrome_bin = os.environ.get("CHROME_BIN")
@@ -64,20 +85,30 @@ class Backend(Base):
         
         # Check possible paths
         for path in possible_paths:
-            if os.path.exists(path):
-                print(f"[DEBUG] Found Chrome at: {path}")
-                return path
+            expanded_path = os.path.expandvars(os.path.expanduser(path))
+            if os.path.exists(expanded_path):
+                print(f"[DEBUG] Found Chrome at: {expanded_path}")
+                return expanded_path
         
-        # Try to find using which command
+        # Try to find using which/where command
         try:
-            for cmd in ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser']:
-                result = subprocess.run(['which', cmd], capture_output=True, text=True)
-                if result.returncode == 0:
-                    path = result.stdout.strip()
-                    print(f"[DEBUG] Found Chrome via 'which {cmd}': {path}")
-                    return path
+            which_cmd = 'where' if system == "windows" else 'which'
+            for cmd in which_commands:
+                try:
+                    result = subprocess.run([which_cmd, cmd], capture_output=True, text=True, timeout=10)
+                    if result.returncode == 0:
+                        path = result.stdout.strip().split('\n')[0]  # Take first result
+                        if os.path.exists(path):
+                            print(f"[DEBUG] Found Chrome via '{which_cmd} {cmd}': {path}")
+                            return path
+                except subprocess.TimeoutExpired:
+                    print(f"[DEBUG] '{which_cmd} {cmd}' command timed out")
+                    continue
+                except Exception as e:
+                    print(f"[DEBUG] '{which_cmd} {cmd}' command failed: {e}")
+                    continue
         except Exception as e:
-            print(f"[DEBUG] 'which' command failed: {e}")
+            print(f"[DEBUG] Command search failed: {e}")
         
         print("[DEBUG] Chrome executable not found")
         return None
@@ -105,6 +136,7 @@ class Backend(Base):
         options.add_argument("--allow-running-insecure-content")
         options.add_argument("--disable-extensions")
         options.add_argument("--disable-plugins")
+        options.add_argument("--window-size=1920,1080")
         
         # Disable images for faster loading
         prefs = {"profile.managed_default_content_settings.images": 2}
@@ -116,17 +148,32 @@ class Backend(Base):
         Communicator.show_message("Wait checking for driver...\nIf you don't have webdriver in your machine it will install it")
 
         try:
-            if DRIVER_EXECUTABLE_PATH is not None:
+            if DRIVER_EXECUTABLE_PATH is not None and os.path.exists(DRIVER_EXECUTABLE_PATH):
                 self.driver = uc.Chrome(
                     driver_executable_path=DRIVER_EXECUTABLE_PATH, 
                     options=options
                 )
             else:
                 self.driver = uc.Chrome(options=options)
+            
+            print("[DEBUG] Successfully initialized undetected Chrome")
                 
         except Exception as e:
             print(f"[DEBUG] Undetected Chrome failed: {e}")
+            # Check if it's a binary location error
+            if "Binary Location Must be a String" in str(e) or "binary location" in str(e).lower():
+                print("[DEBUG] Binary location error detected, trying without custom path")
+                try:
+                    # Try without custom binary location
+                    options.binary_location = None
+                    self.driver = uc.Chrome(options=options)
+                    print("[DEBUG] Successfully initialized undetected Chrome without custom binary")
+                    return
+                except Exception as e2:
+                    print(f"[DEBUG] Undetected Chrome retry failed: {e2}")
+            
             # Fallback to regular Chrome
+            print("[DEBUG] Falling back to regular Chrome driver")
             self._init_regular_chrome(chrome_path)
 
     def _init_regular_chrome(self, chrome_path):
@@ -145,6 +192,9 @@ class Backend(Base):
         options.add_argument("--disable-extensions")
         options.add_argument("--disable-plugins")
         options.add_argument("--window-size=1920,1080")
+        options.add_argument("--disable-blink-features=AutomationControlled")
+        options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        options.add_experimental_option('useAutomationExtension', False)
         
         # Disable images for faster loading
         prefs = {"profile.managed_default_content_settings.images": 2}
@@ -155,18 +205,28 @@ class Backend(Base):
 
         Communicator.show_message("Wait checking for driver...\nIf you don't have webdriver in your machine it will install it")
 
-        try:
-            # Try to use webdriver-manager
-            service = Service(ChromeDriverManager().install())
-            self.driver = webdriver.Chrome(service=service, options=options)
-        except Exception as e:
-            print(f"[DEBUG] webdriver-manager failed: {e}")
-            # Try without service
+        # Try multiple initialization methods
+        initialization_methods = [
+            ("webdriver-manager", self._try_webdriver_manager),
+            ("system chromedriver", self._try_system_chromedriver),
+            ("default chrome", self._try_default_chrome)
+        ]
+        
+        last_error = None
+        for method_name, method in initialization_methods:
             try:
-                self.driver = webdriver.Chrome(options=options)
-            except Exception as e2:
-                print(f"[DEBUG] Regular Chrome failed: {e2}")
-                raise RuntimeError(f"Could not initialize Chrome driver: {e2}")
+                print(f"[DEBUG] Trying {method_name}...")
+                self.driver = method(options)
+                print(f"[DEBUG] Successfully initialized with {method_name}")
+                break
+            except Exception as e:
+                print(f"[DEBUG] {method_name} failed: {e}")
+                last_error = e
+                continue
+        else:
+            # If all methods failed
+            error_msg = self._generate_chrome_error_message(chrome_path, last_error)
+            raise RuntimeError(error_msg)
 
         Communicator.show_message("Opening browser...")
         try:
@@ -176,6 +236,74 @@ class Backend(Base):
             pass  # In headless mode, maximize might fail
             
         self.driver.implicitly_wait(self.timeout)
+
+    def _try_webdriver_manager(self, options):
+        """Try to initialize using webdriver-manager"""
+        service = Service(ChromeDriverManager().install())
+        return webdriver.Chrome(service=service, options=options)
+    
+    def _try_system_chromedriver(self, options):
+        """Try to use system-installed chromedriver"""
+        chromedriver_path = os.environ.get("CHROMEDRIVER_PATH")
+        if chromedriver_path and os.path.exists(chromedriver_path):
+            service = Service(chromedriver_path)
+            return webdriver.Chrome(service=service, options=options)
+        
+        # Try common system paths
+        import platform
+        system = platform.system().lower()
+        if system == "windows":
+            possible_paths = [
+                r"C:\chromedriver\chromedriver.exe",
+                r"C:\Program Files\chromedriver\chromedriver.exe",
+                r"C:\tools\chromedriver\chromedriver.exe"
+            ]
+        else:
+            possible_paths = [
+                "/usr/local/bin/chromedriver",
+                "/usr/bin/chromedriver",
+                "/opt/chromedriver/chromedriver"
+            ]
+        
+        for path in possible_paths:
+            if os.path.exists(path):
+                service = Service(path)
+                return webdriver.Chrome(service=service, options=options)
+        
+        raise Exception("No system chromedriver found")
+    
+    def _try_default_chrome(self, options):
+        """Try to initialize without explicit service"""
+        return webdriver.Chrome(options=options)
+    
+    def _generate_chrome_error_message(self, chrome_path, last_error):
+        """Generate a helpful error message for Chrome initialization failures"""
+        import platform
+        system = platform.system().lower()
+        
+        error_msg = f"Could not initialize Chrome driver: {last_error}\n\n"
+        error_msg += "🔧 TROUBLESHOOTING STEPS:\n"
+        error_msg += "=" * 50 + "\n"
+        
+        if system == "windows":
+            error_msg += "1. Install Google Chrome from: https://www.google.com/chrome/\n"
+            error_msg += "2. Make sure Chrome is installed in the default location\n"
+            error_msg += "3. Try running as Administrator\n"
+            error_msg += "4. Check Windows Defender/Antivirus settings\n"
+        else:
+            error_msg += "1. Install Google Chrome:\n"
+            error_msg += "   Ubuntu/Debian: sudo apt-get install google-chrome-stable\n"
+            error_msg += "   CentOS/RHEL: sudo yum install google-chrome-stable\n"
+            error_msg += "   Or download from: https://www.google.com/chrome/\n"
+            error_msg += "2. Install dependencies:\n"
+            error_msg += "   sudo apt-get install -y xvfb\n"
+            error_msg += "3. Set environment variables:\n"
+            error_msg += "   export CHROME_BIN=/usr/bin/google-chrome\n"
+        
+        error_msg += f"\n📍 Chrome path searched: {chrome_path or 'Not found'}\n"
+        error_msg += "💡 For deployment, check the DEPLOYMENT_GUIDE.md file\n"
+        
+        return error_msg
 
     def mainscraping(self):
         try:

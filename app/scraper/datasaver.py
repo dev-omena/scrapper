@@ -4,10 +4,17 @@ This module contain the code for saving the scraped data
 
 
 import pandas as pd
-from scraper.communicator import Communicator
-from settings import OUTPUT_PATH
+try:
+    from scraper.communicator import Communicator
+    from scraper.error_codes import ERROR_CODES
+    from settings import OUTPUT_PATH
+except ImportError:
+    from app.scraper.communicator import Communicator
+    from app.scraper.error_codes import ERROR_CODES
+    from app.settings import OUTPUT_PATH
 import os
-from scraper.error_codes import ERROR_CODES
+import json
+import csv
 
 class DataSaver:
     def __init__(self) -> None:

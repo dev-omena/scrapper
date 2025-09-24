@@ -1,9 +1,14 @@
 import time
-from scraper.communicator import Communicator
-from scraper.common import Common
+try:
+    from scraper.communicator import Communicator
+    from scraper.common import Common
+    from scraper.parser import Parser
+except ImportError:
+    from app.scraper.communicator import Communicator
+    from app.scraper.common import Common
+    from app.scraper.parser import Parser
 from bs4 import BeautifulSoup
 from selenium.common.exceptions import JavascriptException
-from scraper.parser import Parser
 
 class Scroller:
 
