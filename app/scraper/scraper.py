@@ -330,15 +330,11 @@ class Backend(Base):
                         'button[aria-label*="Accepteren"]',  // Dutch
                         'button[aria-label*="Akzeptieren"]', // German
                         'button[aria-label*="Accepter"]',    // French
-                        'button:contains("Accept")',
-                        'button:contains("Accepteren")',
-                        'button:contains("Alles accepteren")',
                         '[data-value="accept"]',
-                        '[role="button"][aria-label*="accept"]',
-                        'div[role="button"]:contains("Accept")',
-                        'div[role="button"]:contains("Accepteren")'
+                        '[role="button"][aria-label*="accept"]'
                     ];
                     
+                    // First try specific selectors
                     for (var i = 0; i < acceptButtons.length; i++) {
                         var buttons = document.querySelectorAll(acceptButtons[i]);
                         for (var j = 0; j < buttons.length; j++) {
@@ -351,15 +347,37 @@ class Backend(Base):
                     }
                     
                     // Try to find any button with "accept" text
-                    var allButtons = document.querySelectorAll('button, div[role="button"]');
+                    var allButtons = document.querySelectorAll('button, div[role="button"], [role="button"]');
                     for (var k = 0; k < allButtons.length; k++) {
                         var btn = allButtons[k];
-                        var text = btn.textContent || btn.innerText || '';
-                        if (text.toLowerCase().includes('accept') || 
-                            text.toLowerCase().includes('accepteren') ||
-                            text.toLowerCase().includes('alles')) {
+                        var text = (btn.textContent || btn.innerText || '').toLowerCase();
+                        var ariaLabel = (btn.getAttribute('aria-label') || '').toLowerCase();
+                        
+                        if (text.includes('accept') || text.includes('accepteren') || 
+                            text.includes('alles accepteren') || text.includes('alle accepteren') ||
+                            ariaLabel.includes('accept') || ariaLabel.includes('accepteren')) {
                             btn.click();
-                            return 'Clicked button with text: ' + text;
+                            return 'Clicked button with text: ' + (btn.textContent || btn.innerText || btn.getAttribute('aria-label'));
+                        }
+                    }
+                    
+                    // Try common Google consent button patterns
+                    var commonPatterns = [
+                        'button[jsname]',  // Google often uses jsname attributes
+                        'div[jsname][role="button"]',
+                        'button[data-ved]',  // Google tracking attributes
+                        'div[data-ved][role="button"]'
+                    ];
+                    
+                    for (var p = 0; p < commonPatterns.length; p++) {
+                        var patternButtons = document.querySelectorAll(commonPatterns[p]);
+                        for (var q = 0; q < patternButtons.length; q++) {
+                            var pBtn = patternButtons[q];
+                            var pText = (pBtn.textContent || pBtn.innerText || '').toLowerCase();
+                            if (pText.includes('accept') || pText.includes('accepteren') || pText.includes('alles')) {
+                                pBtn.click();
+                                return 'Clicked Google pattern button: ' + pText;
+                            }
                         }
                     }
                     
@@ -369,8 +387,45 @@ class Backend(Base):
                 
                 Communicator.show_message(f"[DEBUG] Consent handling result: {consent_handled}")
                 
+                # If no button was found, try a more aggressive approach
+                if "No accept button found" in consent_handled:
+                    Communicator.show_message("[DEBUG] Trying alternative consent handling...")
+                    
+                    # Try to find and analyze all clickable elements
+                    alternative_result = self.driver.execute_script(
+                        """
+                        // Log all buttons for debugging
+                        var allClickable = document.querySelectorAll('button, [role="button"], input[type="button"], input[type="submit"]');
+                        var buttonInfo = [];
+                        
+                        for (var i = 0; i < Math.min(allClickable.length, 10); i++) {
+                            var el = allClickable[i];
+                            var info = {
+                                tag: el.tagName,
+                                text: (el.textContent || el.innerText || '').trim().substring(0, 50),
+                                ariaLabel: el.getAttribute('aria-label') || '',
+                                className: el.className || '',
+                                id: el.id || ''
+                            };
+                            buttonInfo.push(info);
+                            
+                            // Try clicking anything that looks like accept
+                            var combinedText = (info.text + ' ' + info.ariaLabel).toLowerCase();
+                            if (combinedText.includes('accept') || combinedText.includes('alles') || 
+                                combinedText.includes('akkoord') || combinedText.includes('toestemming')) {
+                                el.click();
+                                return 'Clicked alternative: ' + info.text + ' / ' + info.ariaLabel;
+                            }
+                        }
+                        
+                        return 'Found buttons: ' + JSON.stringify(buttonInfo);
+                        """
+                    )
+                    
+                    Communicator.show_message(f"[DEBUG] Alternative consent result: {alternative_result}")
+                
                 # Wait a moment for the redirect
-                sleep(3)
+                sleep(5)
                 
                 # Check if we're now on Google Maps
                 new_url = self.driver.current_url
