@@ -50,9 +50,11 @@ echo "🔧 Installing ChromeDriver..."
 
 # Get Chrome version to match ChromeDriver version
 CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+\.\d+')
-CHROMEDRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION%.*.*}")
+CHROME_MAJOR_VERSION=$(echo $CHROME_VERSION | cut -d. -f1)
+CHROMEDRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_MAJOR_VERSION}")
 
 echo "Chrome version: $CHROME_VERSION"
+echo "Chrome major version: $CHROME_MAJOR_VERSION"
 echo "ChromeDriver version: $CHROMEDRIVER_VERSION"
 
 # Download and install ChromeDriver
