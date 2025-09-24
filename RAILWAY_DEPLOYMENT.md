@@ -241,6 +241,39 @@ After deployment, check the logs for:
 - **Reason**: Nixpacks Python environment is externally managed and prevents modifications without this flag
 - Use only: `nixPkgs = ["python3", "chromium", "xorg.xvfb"]`
 
+#### 3. Healthcheck Failures
+
+**Error**: `Healthcheck failed! 1/1 replicas never became healthy!`
+
+**Symptoms**:
+- Build completes successfully
+- Application fails health checks
+- Service shows as "service unavailable"
+
+**Solution**:
+- **Root Cause**: Running desktop GUI application (`app/run.py`) instead of web application
+- **Fix**: Update `start.sh` to run `python web/app.py` instead of `python app/run.py`
+- **Verification**: Ensure `RAILWAY_ENVIRONMENT=true` is set in environment variables
+
+**Why This Happens**:
+- Railway expects a web application that responds to HTTP requests on a specific port
+- The desktop version (`app/run.py`) runs a Tkinter GUI which doesn't serve HTTP requests
+- The web version (`web/app.py`) is a Flask application designed for Railway deployment
+- The web app automatically detects Railway environment and binds to `0.0.0.0` with the correct PORT
+
+**Correct start.sh configuration**:
+```bash
+# Set environment variables
+export RAILWAY_ENVIRONMENT=true
+export DISPLAY=:99
+export PYTHONPATH=/app:/app/app
+
+# Run the web application (not the desktop GUI)
+echo "🎯 Starting web application..."
+cd /app
+python web/app.py
+```
+
 ### Debug Commands
 
 Add these to your Railway service for debugging:

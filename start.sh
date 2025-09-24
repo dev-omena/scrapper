@@ -6,6 +6,7 @@ echo "🚀 Starting Google Maps Scraper on Railway..."
 # Set environment variables
 export DISPLAY=:99
 export PYTHONPATH=/app:/app/app
+export RAILWAY_ENVIRONMENT=true
 
 # Detect Chrome installation
 if command -v google-chrome >/dev/null 2>&1; then
@@ -45,7 +46,7 @@ else
     exit 1
 fi
 
-# Run the application
-echo "🎯 Starting application..."
+# Run the web application
+echo "🎯 Starting web application..."
 cd /app
-python app/run.py
+python web/app.py

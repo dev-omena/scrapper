@@ -33,6 +33,7 @@ nixPkgs = ["python3", "chromium", "xorg.xvfb"]
 5. **Added System Override**: Used `--break-system-packages` flag to bypass externally managed environment restrictions
 6. **Enhanced Build Script**: Improved Chrome/Chromium detection and installation
 7. **Optimized Start Script**: Better runtime environment configuration
+8. **Fixed Healthcheck Issue**: Updated start script to run web application instead of desktop GUI
 
 ## 🔧 Additional Improvements
 
@@ -92,11 +93,43 @@ Created `test_nixpacks.py` to verify:
 - ✅ Symbolic links provide compatibility
 - ✅ All existing tests still pass
 
+## 🚀 Healthcheck Fix
+
+### Problem
+After resolving the pip installation issues, the application was building successfully but failing health checks:
+```
+Healthcheck failed! 1/1 replicas never became healthy!
+```
+
+### Root Cause
+The `start.sh` script was running the desktop GUI application (`app/run.py`) instead of the web application (`web/app.py`). Railway expects a web service that responds to HTTP requests, not a Tkinter GUI application.
+
+### Solution
+Updated `start.sh` to:
+1. Set `RAILWAY_ENVIRONMENT=true` environment variable
+2. Run `python web/app.py` instead of `python app/run.py`
+3. The web application automatically detects Railway environment and binds to `0.0.0.0` with the correct PORT
+
+### Fixed start.sh:
+```bash
+# Set environment variables
+export DISPLAY=:99
+export PYTHONPATH=/app:/app/app
+export RAILWAY_ENVIRONMENT=true
+
+# Run the web application
+echo "🎯 Starting web application..."
+cd /app
+python web/app.py
+```
+
 ## 🚀 Deployment Impact
 This fix ensures that:
 1. Railway can build the application successfully
 2. Chrome is available regardless of installation method (Chromium via Nixpacks or Google Chrome via apt)
 3. The scraper works with both Chrome variants
 4. Environment variables are properly configured
+5. **Health checks pass** - The web application responds to HTTP requests on the correct port
+6. **Service starts successfully** - Railway can properly monitor and manage the application
 
 The Google Maps Scraper is now fully compatible with Railway's Nixpacks build system! 🎉
