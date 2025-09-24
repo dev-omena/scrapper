@@ -43,7 +43,7 @@ cmds = [
 
 [phases.build]
 cmds = [
-    "pip install -r requirements.txt"
+    "python3 -m pip install -r requirements.txt"
 ]
 ```
 
@@ -221,12 +221,15 @@ After deployment, check the logs for:
 - Check that all Python dependencies are installed
 - Ensure the application structure is correct
 
-#### 5. Nixpacks Build Errors
-**Error**: `undefined variable 'python3-pip'`
+#### 2. Nixpacks Build Errors
 
-**Solution**:
-- Remove `python3-pip` from nixPkgs in `nixpacks.toml`
-- Pip is automatically included with Python 3 in Nixpacks
+**Error**: `undefined variable 'python3-pip'`
+- **Solution**: Remove `python3-pip` from `nixPkgs` in `nixpacks.toml`
+- **Reason**: `pip` is automatically included with Python 3 in Nixpacks
+
+**Error**: `pip: command not found`
+- **Solution**: Use `python3 -m pip` instead of `pip` in build commands
+- **Reason**: In Nixpacks environment, pip should be invoked through Python module
 - Use only: `nixPkgs = ["python3", "chromium", "xorg.xvfb"]`
 
 ### Debug Commands
