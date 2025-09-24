@@ -50,13 +50,33 @@ class Backend(Base):
 
         import os
         chrome_bin = os.environ.get("CHROME_BIN")
+        print(f"[DEBUG] CHROME_BIN env: {chrome_bin}")
         if not chrome_bin or not isinstance(chrome_bin, str):
             # Fallback for local Windows development
             if os.name == "nt":
                 chrome_bin = r"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
             else:
                 raise RuntimeError("CHROME_BIN environment variable is not set or not a string")
+        # Check if the chrome_bin path exists
+        if not os.path.exists(chrome_bin):
+            print(f"[DEBUG] Chrome binary not found at {chrome_bin}")
+            # Try fallback to /usr/bin/chromium
+            if os.path.exists("/usr/bin/chromium"):
+                print("[DEBUG] Falling back to /usr/bin/chromium")
+                chrome_bin = "/usr/bin/chromium"
+            else:
+                print("[DEBUG] /usr/bin/chromium also not found")
+            # Print /usr/bin directory listing for debugging
+            print("[DEBUG] /usr/bin directory listing:")
+            try:
+                print(os.listdir("/usr/bin"))
+            except Exception as e:
+                print(f"[DEBUG] Could not list /usr/bin: {e}")
+        else:
+            print(f"[DEBUG] Chrome binary found at {chrome_bin}")
         options.binary_location = chrome_bin
+        print(f"[DEBUG] Using Chrome binary: {chrome_bin}")
+        # Also pass browser_executable_path to uc.Chrome below
 
         Communicator.show_message("Wait checking for driver...\nIf you don't have webdriver in your machine it will install it")
 
