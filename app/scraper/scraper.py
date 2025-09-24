@@ -308,6 +308,88 @@ class Backend(Base):
         
         return error_msg
 
+    def handle_consent_page(self):
+        """Handle Google's consent page if it appears"""
+        try:
+            # Check if we're on a consent page
+            current_url = self.driver.current_url
+            page_title = self.driver.title
+            
+            Communicator.show_message(f"[DEBUG] Current URL: {current_url}")
+            Communicator.show_message(f"[DEBUG] Page Title: {page_title}")
+            
+            if "consent.google.com" in current_url or "consent" in page_title.lower():
+                Communicator.show_message("[DEBUG] Detected Google consent page, attempting to handle...")
+                
+                # Try to find and click accept buttons
+                consent_handled = self.driver.execute_script(
+                    """
+                    // Try multiple strategies to handle consent
+                    var acceptButtons = [
+                        'button[aria-label*="Accept"]',
+                        'button[aria-label*="Accepteren"]',  // Dutch
+                        'button[aria-label*="Akzeptieren"]', // German
+                        'button[aria-label*="Accepter"]',    // French
+                        'button:contains("Accept")',
+                        'button:contains("Accepteren")',
+                        'button:contains("Alles accepteren")',
+                        '[data-value="accept"]',
+                        '[role="button"][aria-label*="accept"]',
+                        'div[role="button"]:contains("Accept")',
+                        'div[role="button"]:contains("Accepteren")'
+                    ];
+                    
+                    for (var i = 0; i < acceptButtons.length; i++) {
+                        var buttons = document.querySelectorAll(acceptButtons[i]);
+                        for (var j = 0; j < buttons.length; j++) {
+                            var button = buttons[j];
+                            if (button && button.offsetParent !== null) {
+                                button.click();
+                                return 'Clicked: ' + acceptButtons[i];
+                            }
+                        }
+                    }
+                    
+                    // Try to find any button with "accept" text
+                    var allButtons = document.querySelectorAll('button, div[role="button"]');
+                    for (var k = 0; k < allButtons.length; k++) {
+                        var btn = allButtons[k];
+                        var text = btn.textContent || btn.innerText || '';
+                        if (text.toLowerCase().includes('accept') || 
+                            text.toLowerCase().includes('accepteren') ||
+                            text.toLowerCase().includes('alles')) {
+                            btn.click();
+                            return 'Clicked button with text: ' + text;
+                        }
+                    }
+                    
+                    return 'No accept button found';
+                    """
+                )
+                
+                Communicator.show_message(f"[DEBUG] Consent handling result: {consent_handled}")
+                
+                # Wait a moment for the redirect
+                sleep(3)
+                
+                # Check if we're now on Google Maps
+                new_url = self.driver.current_url
+                new_title = self.driver.title
+                
+                Communicator.show_message(f"[DEBUG] After consent - URL: {new_url}")
+                Communicator.show_message(f"[DEBUG] After consent - Title: {new_title}")
+                
+                if "google.com/maps" in new_url:
+                    Communicator.show_message("[DEBUG] Successfully redirected to Google Maps!")
+                else:
+                    Communicator.show_message("[DEBUG] Still not on Google Maps, may need manual intervention")
+                    
+            else:
+                Communicator.show_message("[DEBUG] No consent page detected, proceeding normally")
+                
+        except Exception as e:
+            Communicator.show_message(f"[DEBUG] Error handling consent page: {str(e)}")
+
     def mainscraping(self):
         try:
             querywithplus = "+".join(self.searchquery.split())
@@ -323,6 +405,9 @@ class Backend(Base):
 
             Communicator.show_message(f"[DEBUG] Opening URL: {link_of_page}")
             self.openingurl(url=link_of_page)
+
+            # Check if we're on a consent page and handle it
+            self.handle_consent_page()
 
             Communicator.show_message("Working start...")
             Communicator.show_message("[DEBUG] About to start scrolling...")
