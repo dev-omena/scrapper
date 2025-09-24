@@ -5,7 +5,10 @@ echo "🔧 Setting up Chrome for Railway deployment..."
 
 # Ensure required tools are available
 apt-get update
-apt-get install -y wget unzip curl
+apt-get install -y wget unzip curl file
+
+# Install additional dependencies for ChromeDriver
+apt-get install -y libc6 libgcc-s1 libstdc++6 libnss3 libatk-bridge2.0-0 libdrm2 libxcomposite1 libxdamage1 libxrandr2 libgbm1 libxss1 libasound2
 
 # Check if chromium is available (from Nixpacks)
 if command -v chromium >/dev/null 2>&1; then
@@ -111,11 +114,43 @@ else
     exit 1
 fi
 
-# Verify ChromeDriver installation
-if command -v chromedriver >/dev/null 2>&1; then
-    echo "✅ ChromeDriver installed: $(chromedriver --version)"
+# Verify ChromeDriver binary architecture and executability
+echo "🔍 Verifying ChromeDriver binary..."
+if file /usr/bin/chromedriver | grep -q "ELF 64-bit"; then
+    echo "✅ ChromeDriver binary has correct 64-bit architecture"
 else
-    echo "❌ ChromeDriver installation failed"
+    echo "❌ ChromeDriver binary architecture check failed:"
+    file /usr/bin/chromedriver
+    exit 1
+fi
+
+# Test if ChromeDriver can be executed
+if /usr/bin/chromedriver --version >/dev/null 2>&1; then
+    echo "✅ ChromeDriver binary is executable"
+else
+    echo "❌ ChromeDriver binary cannot be executed"
+    echo "Checking dependencies:"
+    ldd /usr/bin/chromedriver 2>&1 || echo "ldd check failed"
+    exit 1
+fi
+
+# Verify ChromeDriver installation
+echo "🔍 ChromeDriver verification:"
+echo "  File exists: $(test -f /usr/bin/chromedriver && echo 'YES' || echo 'NO')"
+echo "  File permissions: $(ls -la /usr/bin/chromedriver 2>/dev/null || echo 'FILE NOT FOUND')"
+echo "  File type: $(file /usr/bin/chromedriver 2>/dev/null || echo 'CANNOT DETERMINE')"
+
+if command -v chromedriver >/dev/null 2>&1; then
+    echo "✅ ChromeDriver command available"
+    if chromedriver --version 2>/dev/null; then
+        echo "✅ ChromeDriver version check successful"
+    else
+        echo "❌ ChromeDriver version check failed"
+        echo "Trying to run with explicit path:"
+        /usr/bin/chromedriver --version 2>&1 || echo "Direct execution failed"
+    fi
+else
+    echo "❌ ChromeDriver command not found in PATH"
     exit 1
 fi
 
