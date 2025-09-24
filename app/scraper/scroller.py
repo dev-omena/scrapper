@@ -124,12 +124,105 @@ class Scroller:
                     )
                     
                     if page_analysis:
-                        Communicator.show_message(message=f"[DEBUG] Page Analysis:")
-                        Communicator.show_message(message=f"[DEBUG] Title: {page_analysis.get('title', 'Unknown')}")
-                        Communicator.show_message(message=f"[DEBUG] URL: {page_analysis.get('url', 'Unknown')}")
-                        Communicator.show_message(message=f"[DEBUG] Has Results: {page_analysis.get('hasResults', False)}")
-                        Communicator.show_message(message=f"[DEBUG] Elements found: {page_analysis.get('elements', [])}")
-                        Communicator.show_message(message=f"[DEBUG] Scrollable containers: {page_analysis.get('possibleContainers', [])}")
+                          Communicator.show_message(message=f"[DEBUG] Page Analysis:")
+                          Communicator.show_message(message=f"[DEBUG] Title: {page_analysis.get('title', 'Unknown')}")
+                          Communicator.show_message(message=f"[DEBUG] URL: {page_analysis.get('url', 'Unknown')}")
+                          Communicator.show_message(message=f"[DEBUG] Has Results: {page_analysis.get('hasResults', False)}")
+                          Communicator.show_message(message=f"[DEBUG] Elements found: {page_analysis.get('elements', [])}")
+                          Communicator.show_message(message=f"[DEBUG] Scrollable containers: {page_analysis.get('possibleContainers', [])}")
+                          
+                          # Add comprehensive HTML structure debugging
+                          html_debug = self.driver.execute_script(
+                              """
+                              var debug = {
+                                  feedElement: null,
+                                  gaBwheElement: null,
+                                  allLinks: [],
+                                  bodyStructure: '',
+                                  feedHTML: '',
+                                  gaBwheHTML: ''
+                              };
+                              
+                              // Check feed element
+                              var feed = document.querySelector("[role='feed']");
+                              if (feed) {
+                                  debug.feedElement = {
+                                      className: feed.className,
+                                      innerHTML: feed.innerHTML.substring(0, 500),
+                                      childrenCount: feed.children.length,
+                                      scrollHeight: feed.scrollHeight,
+                                      clientHeight: feed.clientHeight
+                                  };
+                                  debug.feedHTML = feed.outerHTML.substring(0, 1000);
+                              }
+                              
+                              // Check gaBwhe element
+                              var gaBwhe = document.querySelector(".gaBwhe");
+                              if (gaBwhe) {
+                                  debug.gaBwheElement = {
+                                      className: gaBwhe.className,
+                                      innerHTML: gaBwhe.innerHTML.substring(0, 500),
+                                      childrenCount: gaBwhe.children.length,
+                                      scrollHeight: gaBwhe.scrollHeight,
+                                      clientHeight: gaBwhe.clientHeight,
+                                      parentClassName: gaBwhe.parentElement ? gaBwhe.parentElement.className : 'no-parent'
+                                  };
+                                  debug.gaBwheHTML = gaBwhe.outerHTML.substring(0, 1000);
+                              }
+                              
+                              // Find all links
+                              var allLinks = document.querySelectorAll('a');
+                              debug.allLinks = Array.from(allLinks).slice(0, 10).map(function(link) {
+                                  return {
+                                      href: link.href,
+                                      text: link.textContent.substring(0, 50),
+                                      className: link.className
+                                  };
+                              });
+                              
+                              // Get body structure overview
+                              var bodyChildren = Array.from(document.body.children).map(function(child) {
+                                  return child.tagName + '.' + child.className.split(' ').join('.');
+                              });
+                              debug.bodyStructure = bodyChildren.join(', ');
+                              
+                              return debug;
+                              """
+                          )
+                          
+                          Communicator.show_message(message=f"[DEBUG] === DETAILED HTML ANALYSIS ===")
+                          if html_debug.get('feedElement'):
+                              Communicator.show_message(message=f"[DEBUG] Feed Element: {html_debug['feedElement']}")
+                          else:
+                              Communicator.show_message(message=f"[DEBUG] Feed Element: NOT FOUND")
+                              
+                          if html_debug.get('gaBwheElement'):
+                              Communicator.show_message(message=f"[DEBUG] GaBwhe Element: {html_debug['gaBwheElement']}")
+                          else:
+                              Communicator.show_message(message=f"[DEBUG] GaBwhe Element: NOT FOUND")
+                              
+                          Communicator.show_message(message=f"[DEBUG] All Links (first 10): {html_debug.get('allLinks', [])}")
+                          Communicator.show_message(message=f"[DEBUG] Body Structure: {html_debug.get('bodyStructure', 'Unknown')}")
+                          
+                          if html_debug.get('feedHTML'):
+                              Communicator.show_message(message=f"[DEBUG] Feed HTML Sample: {html_debug['feedHTML'][:200]}...")
+                          if html_debug.get('gaBwheHTML'):
+                              Communicator.show_message(message=f"[DEBUG] GaBwhe HTML Sample: {html_debug['gaBwheHTML'][:200]}...")
+                          
+                          # Take a screenshot for debugging (only on first attempt)
+                          if attempt == 0:
+                              try:
+                                  screenshot_path = f"/tmp/railway_debug_screenshot_{attempt + 1}.png"
+                                  self.driver.save_screenshot(screenshot_path)
+                                  Communicator.show_message(message=f"[DEBUG] Screenshot saved to: {screenshot_path}")
+                                  
+                                  # Also get page source sample
+                                  page_source = self.driver.page_source
+                                  source_sample = page_source[:2000] if page_source else "No page source"
+                                  Communicator.show_message(message=f"[DEBUG] Page Source Sample: {source_sample}...")
+                                  
+                              except Exception as e:
+                                  Communicator.show_message(message=f"[DEBUG] Screenshot failed: {e}")
                     
                     # Try to find ANY scrollable element as a last resort
                     if attempt >= 3:  # After 3 attempts, try more aggressive approach
@@ -187,6 +280,28 @@ class Scroller:
 
         else:
             Communicator.show_message(message="Starting scrolling")
+            
+            # Debug the scrollable element we're about to use
+            element_debug = self.driver.execute_script(
+                """
+                var element = arguments[0];
+                return {
+                    tagName: element.tagName,
+                    className: element.className,
+                    id: element.id,
+                    scrollHeight: element.scrollHeight,
+                    clientHeight: element.clientHeight,
+                    innerHTML: element.innerHTML.substring(0, 300),
+                    childrenCount: element.children.length,
+                    hasLinks: element.querySelectorAll('a').length,
+                    hasPlaceLinks: element.querySelectorAll('a[href*="/maps/place/"]').length
+                };
+                """, 
+                scrollAbleElement
+            )
+            
+            Communicator.show_message(message=f"[DEBUG] === SCROLLING ELEMENT DEBUG ===")
+            Communicator.show_message(message=f"[DEBUG] Element Info: {element_debug}")
 
             last_height = 0
 
@@ -197,8 +312,8 @@ class Scroller:
 
                 """again finding element to avoid StaleElementReferenceException"""
                 scrollAbleElement = self.driver.execute_script(
-                """return document.querySelector("[role='feed']")"""
-            )
+                    """return document.querySelector("[role='feed']")"""
+                )
                 self.driver.execute_script(
                     "arguments[0].scrollTo(0, arguments[0].scrollHeight);",
                     scrollAbleElement,
