@@ -33,7 +33,7 @@ Configures the build environment and Chrome installation:
 
 ```toml
 [phases.setup]
-nixPkgs = ["python3", "chromium", "xorg.xvfb"]
+nixPkgs = ["python3", "python3Packages.pip", "chromium", "xorg.xvfb"]
 
 [phases.install]
 cmds = [
@@ -230,6 +230,10 @@ After deployment, check the logs for:
 **Error**: `pip: command not found`
 - **Solution**: Use `python3 -m pip` instead of `pip` in build commands
 - **Reason**: In Nixpacks environment, pip should be invoked through Python module
+
+**Error**: `No module named pip`
+- **Solution**: Add `python3Packages.pip` to `nixPkgs` in `nixpacks.toml`
+- **Reason**: Nixpacks Python 3 doesn't include pip by default
 - Use only: `nixPkgs = ["python3", "chromium", "xorg.xvfb"]`
 
 ### Debug Commands

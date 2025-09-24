@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ["python3", "chromium", "xorg.xvfb"]
+nixPkgs = ["python3", "python3Packages.pip", "chromium", "xorg.xvfb"]
 
 [phases.install]
 cmds = [
