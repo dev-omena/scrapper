@@ -51,9 +51,15 @@ try:
     from scraper.communicator import Communicator
     from scraper.common import Common
     from scraper.email_scraper import EmailScraper
-    from web.web_communicator import WebCommunicator
-    from web.web_data_saver import WebDataSaver
-    from web.email_web_communicator import email_web_comm
+    try:
+        from web.web_communicator import WebCommunicator
+        from web.web_data_saver import WebDataSaver
+        from web.email_web_communicator import email_web_comm
+    except ModuleNotFoundError:
+        # Fallback for local runs from web/ directory
+        from web_communicator import WebCommunicator
+        from web_data_saver import WebDataSaver
+        from email_web_communicator import email_web_comm
     print("✅ Successfully imported desktop scraper modules and email scraper!")
 except Exception as e:
     print(f"❌ Error importing scraper modules: {e}")

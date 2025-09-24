@@ -51,17 +51,20 @@ class Backend(Base):
         import os
         chrome_bin = os.environ.get("CHROME_BIN")
         if not chrome_bin or not isinstance(chrome_bin, str):
-            raise RuntimeError("CHROME_BIN environment variable is not set or not a string")
+            # Fallback for local Windows development
+            if os.name == "nt":
+                chrome_bin = r"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
+            else:
+                raise RuntimeError("CHROME_BIN environment variable is not set or not a string")
         options.binary_location = chrome_bin
 
         Communicator.show_message("Wait checking for driver...\nIf you don't have webdriver in your machine it will install it")
 
         try:
+            uc_kwargs = {"options": options, "browser_executable_path": chrome_bin}
             if DRIVER_EXECUTABLE_PATH is not None:
-                self.driver = uc.Chrome(
-                    driver_executable_path=DRIVER_EXECUTABLE_PATH, options=options)
-            else:
-                self.driver = uc.Chrome(options=options)
+                uc_kwargs["driver_executable_path"] = DRIVER_EXECUTABLE_PATH
+            self.driver = uc.Chrome(**uc_kwargs)
 
         except NameError:
             self.driver = uc.Chrome(options=options)

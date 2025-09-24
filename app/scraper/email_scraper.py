@@ -76,10 +76,15 @@ class EmailScraper:
             chrome_options.add_argument('--window-size=1920,1080')
             chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
 
+
             import os
             chrome_bin = os.environ.get("CHROME_BIN")
             if not chrome_bin or not isinstance(chrome_bin, str):
-                raise RuntimeError("CHROME_BIN environment variable is not set or not a string")
+                # Fallback for local Windows development
+                if os.name == "nt":
+                    chrome_bin = r"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
+                else:
+                    raise RuntimeError("CHROME_BIN environment variable is not set or not a string")
             chrome_options.binary_location = chrome_bin
 
             self.driver = webdriver.Chrome(options=chrome_options)
