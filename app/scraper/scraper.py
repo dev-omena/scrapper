@@ -205,10 +205,10 @@ class Backend(Base):
 
         Communicator.show_message("Wait checking for driver...\nIf you don't have webdriver in your machine it will install it")
 
-        # Try multiple initialization methods
+        # Try multiple initialization methods (prioritize system chromedriver for Railway)
         initialization_methods = [
-            ("webdriver-manager", self._try_webdriver_manager),
             ("system chromedriver", self._try_system_chromedriver),
+            ("webdriver-manager", self._try_webdriver_manager),
             ("default chrome", self._try_default_chrome)
         ]
         
@@ -244,12 +244,14 @@ class Backend(Base):
     
     def _try_system_chromedriver(self, options):
         """Try to use system-installed chromedriver"""
+        # Check environment variable first
         chromedriver_path = os.environ.get("CHROMEDRIVER_PATH")
         if chromedriver_path and os.path.exists(chromedriver_path):
+            print(f"[DEBUG] Using CHROMEDRIVER_PATH: {chromedriver_path}")
             service = Service(chromedriver_path)
             return webdriver.Chrome(service=service, options=options)
         
-        # Try common system paths
+        # Try common system paths (prioritize /usr/bin for Railway)
         import platform
         system = platform.system().lower()
         if system == "windows":
@@ -260,13 +262,14 @@ class Backend(Base):
             ]
         else:
             possible_paths = [
+                "/usr/bin/chromedriver",  # Railway/Docker standard location
                 "/usr/local/bin/chromedriver",
-                "/usr/bin/chromedriver",
                 "/opt/chromedriver/chromedriver"
             ]
         
         for path in possible_paths:
             if os.path.exists(path):
+                print(f"[DEBUG] Using system chromedriver: {path}")
                 service = Service(path)
                 return webdriver.Chrome(service=service, options=options)
         

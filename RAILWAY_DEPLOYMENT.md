@@ -274,6 +274,55 @@ cd /app
 python web/app.py
 ```
 
+#### 4. ChromeDriver Failures
+
+**Error**: `Service unexpectedly exited. Status code was: 127`
+
+**Symptoms**:
+- Web application starts successfully
+- Health checks pass
+- Scraping fails with ChromeDriver initialization errors
+- Multiple fallback attempts fail (undetected-chromedriver, webdriver-manager, system chromedriver)
+
+**Root Cause**:
+- Status code 127 indicates "command not found" or "exec format error"
+- Downloaded ChromeDriver binaries are incompatible with Railway's Linux environment
+- Architecture mismatch between downloaded binaries and Railway containers
+
+**Solution**:
+1. **Install ChromeDriver during build phase** (handled by updated `build.sh`):
+   ```bash
+   # Get Chrome version and install matching ChromeDriver
+   CHROME_VERSION=$(google-chrome --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+   CHROMEDRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION%.*}")
+   
+   # Download and install ChromeDriver
+   wget -O /tmp/chromedriver.zip "https://chromedriver.storage.googleapis.com/chromedriver_linux64.zip"
+   unzip /tmp/chromedriver.zip -d /tmp/
+   mv /tmp/chromedriver /usr/bin/chromedriver
+   chmod +x /usr/bin/chromedriver
+   ```
+
+2. **Set environment variable** (handled by `start.sh`):
+   ```bash
+   export CHROMEDRIVER_PATH=/usr/bin/chromedriver
+   ```
+
+3. **Prioritize system ChromeDriver** (handled by scraper code):
+   - Check `CHROMEDRIVER_PATH` environment variable first
+   - Fall back to common system paths: `/usr/bin/chromedriver`, `/usr/local/bin/chromedriver`
+   - Only use webdriver-manager as last resort
+
+**Verification**:
+- Check build logs for ChromeDriver installation success
+- Verify ChromeDriver is executable: `ls -la /usr/bin/chromedriver`
+- Test ChromeDriver version: `/usr/bin/chromedriver --version`
+
+**Why This Happens**:
+- Railway uses Ubuntu-based containers with specific architecture
+- Runtime-downloaded ChromeDriver binaries may not match the container architecture
+- System-installed ChromeDriver ensures compatibility with the container environment
+
 ### Debug Commands
 
 Add these to your Railway service for debugging:

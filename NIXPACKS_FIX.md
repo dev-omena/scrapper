@@ -123,13 +123,59 @@ cd /app
 python web/app.py
 ```
 
+## 🔧 ChromeDriver Fix
+
+### Problem
+After resolving the healthcheck issues, the web application was starting successfully but scraping was failing with ChromeDriver errors:
+```
+Service unexpectedly exited. Status code was: 127
+```
+
+### Root Cause
+- Status code 127 indicates "command not found" or "exec format error"
+- Runtime-downloaded ChromeDriver binaries were incompatible with Railway's Linux container architecture
+- The scraper was attempting to download ChromeDriver at runtime using webdriver-manager, but these binaries didn't match the container environment
+
+### Solution
+1. **Updated build.sh** to install ChromeDriver during the build phase:
+   - Detects the installed Chrome version
+   - Downloads the matching ChromeDriver version for Linux 64-bit
+   - Installs ChromeDriver to `/usr/bin/chromedriver` with proper permissions
+
+2. **Updated start.sh** to set the ChromeDriver path:
+   ```bash
+   export CHROMEDRIVER_PATH=/usr/bin/chromedriver
+   ```
+
+3. **Updated scraper code** to prioritize system-installed ChromeDriver:
+   - Check `CHROMEDRIVER_PATH` environment variable first
+   - Fall back to common system paths (`/usr/bin/chromedriver`, `/usr/local/bin/chromedriver`)
+   - Only use webdriver-manager as a last resort
+
+### Fixed build.sh ChromeDriver installation:
+```bash
+# Install ChromeDriver
+echo "📦 Installing ChromeDriver..."
+CHROME_VERSION=$(google-chrome --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+CHROMEDRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION%.*}")
+
+wget -O /tmp/chromedriver.zip "https://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip"
+unzip /tmp/chromedriver.zip -d /tmp/
+mv /tmp/chromedriver /usr/bin/chromedriver
+chmod +x /usr/bin/chromedriver
+
+echo "✅ ChromeDriver installed: $(/usr/bin/chromedriver --version)"
+```
+
 ## 🚀 Deployment Impact
-This fix ensures that:
+This comprehensive fix ensures that:
 1. Railway can build the application successfully
 2. Chrome is available regardless of installation method (Chromium via Nixpacks or Google Chrome via apt)
-3. The scraper works with both Chrome variants
-4. Environment variables are properly configured
-5. **Health checks pass** - The web application responds to HTTP requests on the correct port
-6. **Service starts successfully** - Railway can properly monitor and manage the application
+3. **ChromeDriver is properly installed** during the build phase with correct architecture compatibility
+4. The scraper works with both Chrome variants and uses system-installed ChromeDriver
+5. Environment variables are properly configured
+6. **Health checks pass** - The web application responds to HTTP requests on the correct port
+7. **Service starts successfully** - Railway can properly monitor and manage the application
+8. **Scraping functionality works** - ChromeDriver initializes correctly and can perform web scraping
 
 The Google Maps Scraper is now fully compatible with Railway's Nixpacks build system! 🎉

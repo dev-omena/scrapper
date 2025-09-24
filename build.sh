@@ -3,6 +3,10 @@ set -e
 
 echo "🔧 Setting up Chrome for Railway deployment..."
 
+# Ensure required tools are available
+apt-get update
+apt-get install -y wget unzip curl
+
 # Check if chromium is available (from Nixpacks)
 if command -v chromium >/dev/null 2>&1; then
     echo "✅ Chromium found via Nixpacks: $(chromium --version)"
@@ -23,7 +27,7 @@ else
     apt-get update
     
     # Install required dependencies
-    apt-get install -y wget gnupg2 ca-certificates software-properties-common
+    apt-get install -y wget gnupg2 ca-certificates software-properties-common unzip curl
     
     # Add Google Chrome repository
     wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add -
@@ -41,6 +45,30 @@ else
     fi
 fi
 
+# Install ChromeDriver
+echo "🔧 Installing ChromeDriver..."
+
+# Get Chrome version to match ChromeDriver version
+CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+\.\d+')
+CHROMEDRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION%.*.*}")
+
+echo "Chrome version: $CHROME_VERSION"
+echo "ChromeDriver version: $CHROMEDRIVER_VERSION"
+
+# Download and install ChromeDriver
+wget -O /tmp/chromedriver.zip "https://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip"
+unzip /tmp/chromedriver.zip -d /tmp/
+chmod +x /tmp/chromedriver
+mv /tmp/chromedriver /usr/bin/chromedriver
+
+# Verify ChromeDriver installation
+if command -v chromedriver >/dev/null 2>&1; then
+    echo "✅ ChromeDriver installed: $(chromedriver --version)"
+else
+    echo "❌ ChromeDriver installation failed"
+    exit 1
+fi
+
 # Verify final Chrome installation
 echo "✅ Final Chrome verification:"
 if command -v google-chrome >/dev/null 2>&1; then
@@ -51,4 +79,4 @@ else
     exit 1
 fi
 
-echo "🎉 Chrome setup completed successfully!"
+echo "🎉 Chrome and ChromeDriver setup completed successfully!"

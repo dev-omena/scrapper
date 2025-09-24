@@ -85,21 +85,27 @@ class EmailScraper:
             if chrome_path:
                 chrome_options.binary_location = chrome_path
 
-            # Try multiple initialization methods
-            try:
-                # Try webdriver-manager first
-                from webdriver_manager.chrome import ChromeDriverManager
-                from selenium.webdriver.chrome.service import Service
-                service = Service(ChromeDriverManager().install())
-                self.driver = webdriver.Chrome(service=service, options=chrome_options)
-            except Exception as e:
-                print(f"[DEBUG] webdriver-manager failed in email scraper: {e}")
+            # Try multiple initialization methods (prioritize system chromedriver)
+            initialization_methods = [
+                ("system chromedriver", self._try_system_chromedriver),
+                ("webdriver-manager", self._try_webdriver_manager),
+                ("default chrome", self._try_default_chrome)
+            ]
+            
+            last_error = None
+            for method_name, method in initialization_methods:
                 try:
-                    # Try without service
-                    self.driver = webdriver.Chrome(options=chrome_options)
-                except Exception as e2:
-                    print(f"[DEBUG] Chrome initialization failed in email scraper: {e2}")
-                    raise RuntimeError(f"Could not initialize Chrome driver for email scraper: {e2}")
+                    print(f"[DEBUG] Email scraper trying {method_name}...")
+                    self.driver = method(chrome_options)
+                    print(f"[DEBUG] Email scraper successfully initialized with {method_name}")
+                    break
+                except Exception as e:
+                    print(f"[DEBUG] Email scraper {method_name} failed: {e}")
+                    last_error = e
+                    continue
+            else:
+                # If all methods failed
+                raise RuntimeError(f"Could not initialize Chrome driver for email scraper: {last_error}")
 
     def _find_chrome_executable(self):
         """Find Chrome executable in different possible locations"""
@@ -135,6 +141,52 @@ class EmailScraper:
                 return expanded_path
         
         return None
+
+    def _try_system_chromedriver(self, options):
+        """Try to use system-installed chromedriver"""
+        from selenium.webdriver.chrome.service import Service
+        
+        # Check environment variable first
+        chromedriver_path = os.environ.get("CHROMEDRIVER_PATH")
+        if chromedriver_path and os.path.exists(chromedriver_path):
+            print(f"[DEBUG] Email scraper using CHROMEDRIVER_PATH: {chromedriver_path}")
+            service = Service(chromedriver_path)
+            return webdriver.Chrome(service=service, options=options)
+        
+        # Try common system paths (prioritize /usr/bin for Railway)
+        import platform
+        system = platform.system().lower()
+        if system == "windows":
+            possible_paths = [
+                r"C:\chromedriver\chromedriver.exe",
+                r"C:\Program Files\chromedriver\chromedriver.exe",
+                r"C:\tools\chromedriver\chromedriver.exe"
+            ]
+        else:
+            possible_paths = [
+                "/usr/bin/chromedriver",  # Railway/Docker standard location
+                "/usr/local/bin/chromedriver",
+                "/opt/chromedriver/chromedriver"
+            ]
+        
+        for path in possible_paths:
+            if os.path.exists(path):
+                print(f"[DEBUG] Email scraper using system chromedriver: {path}")
+                service = Service(path)
+                return webdriver.Chrome(service=service, options=options)
+        
+        raise Exception("No system chromedriver found")
+
+    def _try_webdriver_manager(self, options):
+        """Try to initialize using webdriver-manager"""
+        from webdriver_manager.chrome import ChromeDriverManager
+        from selenium.webdriver.chrome.service import Service
+        service = Service(ChromeDriverManager().install())
+        return webdriver.Chrome(service=service, options=options)
+
+    def _try_default_chrome(self, options):
+        """Try to initialize without explicit service"""
+        return webdriver.Chrome(options=options)
 
     def close_driver(self):
         """Close Selenium WebDriver"""
