@@ -155,35 +155,35 @@ class Scroller:
                 Communicator.show_message(message=f"[DEBUG] Error on attempt {attempt + 1}: {str(e)}")
                 
         if scrollAbleElement is None:
-            # Final check - maybe Google Maps itself is showing no results
-            google_no_results = self.driver.execute_script(
-                """
-                var noResultsIndicators = [
-                    'No results found',
-                    'لم يتم العثور على نتائج',
-                    'Couldn\\'t find',
-                    'Try a different search',
-                    'No places found'
-                ];
-                
-                var pageText = document.body.innerText || '';
-                for (var i = 0; i < noResultsIndicators.length; i++) {
-                    if (pageText.includes(noResultsIndicators[i])) {
-                        return 'Google Maps shows: ' + noResultsIndicators[i];
-                    }
-                }
-                
-                // Check if we're on the right page
-                if (!window.location.href.includes('google.com/maps')) {
-                    return 'Not on Google Maps page';
-                }
-                
-                return 'Unknown issue - page loaded but no scrollable results';
-                """
-            )
-            
-            Communicator.show_message(message=f"[DEBUG] Final diagnosis: {google_no_results}")
-            Communicator.show_message(message="We are sorry but, No results found for your search query on googel maps....")
+             # Final check - maybe Google Maps itself is showing no results
+             google_no_results = self.driver.execute_script(
+                 """
+                 var noResultsIndicators = [
+                     'No results found',
+                     'لم يتم العثور على نتائج',
+                     'Couldn\\'t find',
+                     'Try a different search',
+                     'No places found'
+                 ];
+                 
+                 var pageText = document.body.innerText || '';
+                 for (var i = 0; i < noResultsIndicators.length; i++) {
+                     if (pageText.includes(noResultsIndicators[i])) {
+                         return 'Google Maps shows: ' + noResultsIndicators[i];
+                     }
+                 }
+                 
+                 // Check if we're on the right page
+                 if (!window.location.href.includes('google.com/maps')) {
+                     return 'Not on Google Maps page';
+                 }
+                 
+                 return 'Unknown issue - page loaded but no scrollable results';
+                 """
+             )
+             
+             Communicator.show_message(message=f"[DEBUG] Final diagnosis: {google_no_results}")
+             Communicator.show_message(message="We are sorry but, No results found for your search query on googel maps....")
 
         else:
             Communicator.show_message(message="Starting scrolling")
@@ -195,88 +195,21 @@ class Scroller:
                     self.driver.quit()
                     return
 
-                """Use the same logic that found the scrollable element initially"""
-                current_scrollable = self.driver.execute_script(
-                    """
-                    // Try the same selectors that worked before
-                    var selectors = [
-                        "[role='feed']",
-                        ".m6QErb",
-                        ".gaBwhe",  // This was found on Railway
-                        "[data-value='Search results']",
-                        ".section-layout-root",
-                        ".section-scrollbox",
-                        "[jsaction*='scroll']",
-                        ".section-result",
-                        "[role='main'] [role='region']",
-                        ".section-listbox",
-                        "[aria-label*='Results']"
-                    ];
-                    
-                    for (var i = 0; i < selectors.length; i++) {
-                        var element = document.querySelector(selectors[i]);
-                        if (element && element.scrollHeight > element.clientHeight) {
-                            return element;
-                        }
-                    }
-                    
-                    // Fallback to any scrollable element
-                    var allElements = document.querySelectorAll('*');
-                    for (var j = 0; j < allElements.length; j++) {
-                        var el = allElements[j];
-                        if (el.scrollHeight > el.clientHeight && el.clientHeight > 200) {
-                            return el;
-                        }
-                    }
-                    return null;
-                    """
-                )
-                
-                if current_scrollable is None:
-                    Communicator.show_message(message="[DEBUG] Lost scrollable element, breaking scroll loop")
-                    break
-                    
-                scrollAbleElement = current_scrollable
-                # More aggressive scrolling for Railway
+                """again finding element to avoid StaleElementReferenceException"""
+                scrollAbleElement = self.driver.execute_script(
+                """return document.querySelector("[role='feed']")"""
+            )
                 self.driver.execute_script(
-                    """
-                    arguments[0].scrollTo(0, arguments[0].scrollHeight);
-                    // Also try scrolling the window
-                    window.scrollTo(0, document.body.scrollHeight);
-                    """,
+                    "arguments[0].scrollTo(0, arguments[0].scrollHeight);",
                     scrollAbleElement,
                 )
-                
-                # Longer wait for Railway's slower loading
-                time.sleep(4)
-                
-                # Try to trigger more results loading
-                self.driver.execute_script(
-                    """
-                    // Trigger scroll events that might load more results
-                    var event = new Event('scroll', { bubbles: true });
-                    arguments[0].dispatchEvent(event);
-                    window.dispatchEvent(event);
-                    """,
-                    scrollAbleElement,
-                )
+                time.sleep(2)
 
 
                 # get new scroll height and compare with last scroll height.
                 new_height = self.driver.execute_script(
                     "return arguments[0].scrollHeight", scrollAbleElement
                 )
-                
-                # Check current result count
-                current_results = self.driver.execute_script(
-                    """
-                    var links = document.querySelectorAll('a[href*="/maps/place/"], a.hfpxzc');
-                    return links.length;
-                    """
-                )
-                
-                Communicator.show_message(f"[DEBUG] Current height: {new_height}, Last height: {last_height}, Results found: {current_results}")
-                
                 if new_height == last_height:
                     """checking if we have reached end of the list"""
 
@@ -301,59 +234,17 @@ class Scroller:
                         break
                 else:
                     last_height = new_height
-                    
-                    # Get the HTML content for parsing
                     allResultsListSoup = BeautifulSoup(
-                        scrollAbleElement.get_attribute('outerHTML'), 'html.parser')
+                    scrollAbleElement.get_attribute('outerHTML'), 'html.parser')
 
-                    # Try multiple selectors for result links
-                    allResultsAnchorTags = []
+                    allResultsAnchorTags = allResultsListSoup.find_all(
+                        'a', class_='hfpxzc')
+
+                    """all the links of results"""
+                    self.__allResultsLinks = [anchorTag.get(
+                        'href') for anchorTag in allResultsAnchorTags]
                     
-                    # Primary selector
-                    primary_results = allResultsListSoup.find_all('a', class_='hfpxzc')
-                    if primary_results:
-                        allResultsAnchorTags = primary_results
-                        Communicator.show_message(f"[DEBUG] Found {len(primary_results)} results with primary selector")
-                    else:
-                        # Try alternative selectors
-                        alternative_selectors = [
-                            ('a[href*="/maps/place/"]', 'href contains /maps/place/'),
-                            ('a[data-value="Directions"]', 'data-value="Directions"'),
-                            ('a[role="link"]', 'role="link"'),
-                            ('div[role="article"] a', 'article links'),
-                            ('div[data-result-index] a', 'data-result-index links'),
-                            ('[jsaction*="click"] a', 'jsaction click links')
-                        ]
-                        
-                        for selector, description in alternative_selectors:
-                            try:
-                                alt_results = allResultsListSoup.select(selector)
-                                if alt_results:
-                                    allResultsAnchorTags = alt_results
-                                    Communicator.show_message(f"[DEBUG] Found {len(alt_results)} results with {description}")
-                                    break
-                            except Exception as e:
-                                Communicator.show_message(f"[DEBUG] Selector {selector} failed: {e}")
-                                continue
-                    
-                    # Extract links
-                    if allResultsAnchorTags:
-                        self.__allResultsLinks = []
-                        for anchorTag in allResultsAnchorTags:
-                            href = anchorTag.get('href')
-                            if href and '/maps/place/' in href:
-                                self.__allResultsLinks.append(href)
-                        
-                        Communicator.show_message(f"Total locations scrolled: {len(self.__allResultsLinks)}")
-                        Communicator.show_message(f"[DEBUG] Sample links: {self.__allResultsLinks[:2] if self.__allResultsLinks else 'None'}")
-                    else:
-                        Communicator.show_message("[DEBUG] No result links found with any selector")
-                        # Debug: show what elements are actually present
-                        all_links = allResultsListSoup.find_all('a')
-                        Communicator.show_message(f"[DEBUG] Total <a> tags found: {len(all_links)}")
-                        if all_links:
-                            sample_classes = [link.get('class', []) for link in all_links[:5]]
-                            Communicator.show_message(f"[DEBUG] Sample link classes: {sample_classes}")
+                    Communicator.show_message(f"Total locations scrolled: {len(self.__allResultsLinks)}")
 
             self.start_parsing()
 

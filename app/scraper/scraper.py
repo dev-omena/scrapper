@@ -21,6 +21,7 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
+import requests
 
 # Try importing undetected_chromedriver first
 try:
@@ -28,6 +29,20 @@ try:
     UC_AVAILABLE = True
 except ImportError:
     UC_AVAILABLE = False
+
+# Try importing remote chrome connector
+try:
+    from remote_chrome_connector import RemoteChromeManager
+    REMOTE_CHROME_AVAILABLE = True
+except ImportError:
+    try:
+        import sys
+        import os
+        sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        from remote_chrome_connector import RemoteChromeManager
+        REMOTE_CHROME_AVAILABLE = True
+    except ImportError:
+        REMOTE_CHROME_AVAILABLE = False
 
 
 class Backend(Base):
@@ -114,6 +129,29 @@ class Backend(Base):
         return None
 
     def init_driver(self):
+        """Initialize Chrome driver with multiple fallback options"""
+        
+        # First priority: Try remote Chrome connection (user's local Chrome)
+        if REMOTE_CHROME_AVAILABLE and os.getenv('REMOTE_CHROME_URL'):
+            try:
+                print("[DEBUG] Attempting to connect to user's remote Chrome...")
+                remote_manager = RemoteChromeManager()
+                self.driver = remote_manager.get_driver()
+                print("[DEBUG] Successfully connected to remote Chrome!")
+                
+                # Set up driver properties
+                self.driver.implicitly_wait(self.timeout)
+                Communicator.show_message("Opening browser...")
+                if not self.headlessMode:
+                    try:
+                        self.driver.maximize_window()
+                    except:
+                        pass
+                return
+            except Exception as e:
+                print(f"[DEBUG] Remote Chrome connection failed: {e}")
+        
+        # Second priority: Local Chrome initialization
         chrome_path = self.find_chrome_executable()
         
         if UC_AVAILABLE:
