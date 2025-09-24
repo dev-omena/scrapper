@@ -9,6 +9,9 @@ except ImportError:
     from app.scraper.parser import Parser
 from bs4 import BeautifulSoup
 from selenium.common.exceptions import JavascriptException
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.by import By
 
 class Scroller:
 
@@ -29,9 +32,33 @@ class Scroller:
     def scroll(self):
         """In case search results are not available"""
 
-        scrollAbleElement = self.driver.execute_script(
+        # Wait for Google Maps to load and search results to appear
+        try:
+            # Wait up to 30 seconds for the feed element to appear
+            wait = WebDriverWait(self.driver, 30)
+            
+            # First, wait for the page to load basic elements
+            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "[data-value='Search']")))
+            
+            # Additional wait for search results to load
+            time.sleep(3)
+            
+            # Now check for the scrollable feed element
+            scrollAbleElement = self.driver.execute_script(
                 """return document.querySelector("[role='feed']")"""
             )
+            
+            if scrollAbleElement is None:
+                # Try waiting a bit more and check again
+                time.sleep(5)
+                scrollAbleElement = self.driver.execute_script(
+                    """return document.querySelector("[role='feed']")"""
+                )
+                
+        except Exception as e:
+            Communicator.show_message(message=f"Error waiting for page to load: {str(e)}")
+            scrollAbleElement = None
+            
         if scrollAbleElement is None:
             Communicator.show_message(message="We are sorry but, No results found for your search query on googel maps....")
 

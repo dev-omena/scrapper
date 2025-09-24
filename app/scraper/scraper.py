@@ -325,8 +325,6 @@ class Backend(Base):
 
             Communicator.show_message("Working start...")
 
-            sleep(1)
-
             self.scroller.scroll()
             
         except Exception as e:
