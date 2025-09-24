@@ -1,15 +1,11 @@
-# Nixpacks Configuration for Railway
-[variables]
-PYTHONPATH = "/app:/app/app"
 
 [phases.setup]
-nixPkgs = ["python310", "chromium", "chromedriver"]
+nixPkgs = ["...", "chromium"]
 
 [phases.install]
-cmds = ["pip install -r requirements-deploy.txt"]
-
-[phases.build]
-cmds = ["echo 'Build completed'"]
-
-[start]
-cmd = "gunicorn app:app --bind 0.0.0.0:$PORT --timeout 300 --workers 2"
+cmds = [
+    "curl -sSL https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -o chrome.deb",
+    "apt-get update",
+    "apt-get install -y ./chrome.deb",
+    "rm chrome.deb"
+]
