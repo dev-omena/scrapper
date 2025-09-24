@@ -1,2 +1,2 @@
 [phases.setup]
-aptPkgs = ["google-chrome-stable", "chromium"]
+cmds = ["chmod +x ./build.sh && ./build.sh"]
