@@ -27,11 +27,12 @@ nixPkgs = ["python3", "chromium", "xorg.xvfb"]
 ## 🔧 **Solution Applied**
 
 1. **Removed Invalid Package**: Deleted `python3-pip` from `nixPkgs` in `nixpacks.toml`
-2. **Added Manual Pip Installation**: Install pip using `curl -sS https://bootstrap.pypa.io/get-pip.py | python3` in build phase
+2. **Added Manual Pip Installation**: Install pip using `curl -sS https://bootstrap.pypa.io/get-pip.py | python3 - --break-system-packages` in build phase
 3. **Updated Package List**: Now uses: `["python3", "curl", "chromium", "xorg.xvfb"]`
-4. **Fixed Pip Command**: Changed `pip install` to `python3 -m pip install` in build phase
-5. **Enhanced Build Script**: Improved Chrome/Chromium detection and installation
-6. **Optimized Start Script**: Better runtime environment configuration
+4. **Fixed Pip Command**: Changed `pip install` to `python3 -m pip install --break-system-packages` in build phase
+5. **Added System Override**: Used `--break-system-packages` flag to bypass externally managed environment restrictions
+6. **Enhanced Build Script**: Improved Chrome/Chromium detection and installation
+7. **Optimized Start Script**: Better runtime environment configuration
 
 ## 🔧 Additional Improvements
 

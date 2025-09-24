@@ -43,8 +43,8 @@ cmds = [
 
 [phases.build]
 cmds = [
-    "curl -sS https://bootstrap.pypa.io/get-pip.py | python3",
-    "python3 -m pip install -r requirements.txt"
+    "curl -sS https://bootstrap.pypa.io/get-pip.py | python3 - --break-system-packages",
+    "python3 -m pip install -r requirements.txt --break-system-packages"
 ]
 ```
 
@@ -235,6 +235,10 @@ After deployment, check the logs for:
 **Error**: `No module named pip`
 - **Solution**: Install pip manually using `curl -sS https://bootstrap.pypa.io/get-pip.py | python3` in build phase
 - **Reason**: Nixpacks Python 3 doesn't include pip by default, and `python3Packages.pip` may not work reliably
+
+**Error**: `externally-managed-environment`
+- **Solution**: Add `--break-system-packages` flag to pip commands
+- **Reason**: Nixpacks Python environment is externally managed and prevents modifications without this flag
 - Use only: `nixPkgs = ["python3", "chromium", "xorg.xvfb"]`
 
 ### Debug Commands
