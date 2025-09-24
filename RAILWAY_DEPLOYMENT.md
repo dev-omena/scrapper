@@ -33,7 +33,7 @@ Configures the build environment and Chrome installation:
 
 ```toml
 [phases.setup]
-nixPkgs = ["python3", "python3-pip", "chromium", "xorg.xvfb"]
+nixPkgs = ["python3", "chromium", "xorg.xvfb"]
 
 [phases.install]
 cmds = [
@@ -46,6 +46,8 @@ cmds = [
     "pip install -r requirements.txt"
 ]
 ```
+
+**Note**: `python3-pip` is not needed as pip is automatically included with Python 3 in Nixpacks.
 
 ### `railway.toml`
 Configures Railway deployment settings:
@@ -218,6 +220,14 @@ After deployment, check the logs for:
 - Verify `PYTHONPATH` includes `/app` and `/app/app`
 - Check that all Python dependencies are installed
 - Ensure the application structure is correct
+
+#### 5. Nixpacks Build Errors
+**Error**: `undefined variable 'python3-pip'`
+
+**Solution**:
+- Remove `python3-pip` from nixPkgs in `nixpacks.toml`
+- Pip is automatically included with Python 3 in Nixpacks
+- Use only: `nixPkgs = ["python3", "chromium", "xorg.xvfb"]`
 
 ### Debug Commands
 
