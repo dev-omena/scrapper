@@ -39,40 +39,63 @@ class Scroller:
         max_attempts = 6
         
         for attempt in range(max_attempts):
-            try:
-                Communicator.show_message(message=f"[DEBUG] Attempt {attempt + 1}/{max_attempts} - Checking for feed element...")
-                
-                # Wait a bit for the page to load
-                time.sleep(5)
-                
-                # Check for the scrollable feed element
-                scrollAbleElement = self.driver.execute_script(
-                    """return document.querySelector("[role='feed']")"""
-                )
-                
-                if scrollAbleElement is not None:
-                    Communicator.show_message(message="[DEBUG] Feed element found! Starting to scroll...")
-                    break
-                else:
-                    Communicator.show_message(message=f"[DEBUG] Feed element not found on attempt {attempt + 1}")
-                    
-                    # Try alternative selectors
-                    alternative_element = self.driver.execute_script(
-                        """
-                        return document.querySelector("[role='main']") || 
-                               document.querySelector(".m6QErb") ||
-                               document.querySelector("[data-value='Directions']")
-                        """
-                    )
-                    
-                    if alternative_element:
-                        Communicator.show_message(message="[DEBUG] Alternative element found, page seems loaded")
-                        # Continue checking for feed element
-                    else:
-                        Communicator.show_message(message="[DEBUG] No page elements found, page may not be loaded")
-                        
-            except Exception as e:
-                Communicator.show_message(message=f"[DEBUG] Error on attempt {attempt + 1}: {str(e)}")
+             try:
+                 Communicator.show_message(message=f"[DEBUG] Attempt {attempt + 1}/{max_attempts} - Checking for feed element...")
+                 
+                 # Wait a bit for the page to load
+                 time.sleep(5)
+                 
+                 # Try multiple selectors for the scrollable search results area
+                 scrollAbleElement = self.driver.execute_script(
+                     """
+                     // Try multiple selectors for Google Maps search results
+                     var selectors = [
+                         "[role='feed']",                    // Primary selector
+                         ".m6QErb",                          // Common Google Maps class
+                         "[data-value='Search results']",    // Alternative data attribute
+                         ".section-layout-root",             // Layout container
+                         ".section-scrollbox",               // Scrollbox container
+                         "[jsaction*='scroll']",             // Elements with scroll actions
+                         ".section-result",                  // Result section
+                         "[role='main'] [role='region']",    // Main region
+                         ".section-listbox",                 // Listbox container
+                         "[aria-label*='Results']"           // Aria label containing "Results"
+                     ];
+                     
+                     for (var i = 0; i < selectors.length; i++) {
+                         var element = document.querySelector(selectors[i]);
+                         if (element && element.scrollHeight > element.clientHeight) {
+                             console.log("Found scrollable element with selector: " + selectors[i]);
+                             return element;
+                         }
+                     }
+                     return null;
+                     """
+                 )
+                 
+                 if scrollAbleElement is not None:
+                     Communicator.show_message(message="[DEBUG] Scrollable element found! Starting to scroll...")
+                     break
+                 else:
+                     Communicator.show_message(message=f"[DEBUG] No scrollable element found on attempt {attempt + 1}")
+                     
+                     # Check if page has loaded at all
+                     page_loaded = self.driver.execute_script(
+                         """
+                         return document.querySelector("[role='main']") || 
+                                document.querySelector(".m6QErb") ||
+                                document.querySelector("[data-value='Directions']") ||
+                                document.querySelector("title")
+                         """
+                     )
+                     
+                     if page_loaded:
+                         Communicator.show_message(message="[DEBUG] Page loaded but no scrollable results found")
+                     else:
+                         Communicator.show_message(message="[DEBUG] Page may not be loaded yet")
+                         
+             except Exception as e:
+                 Communicator.show_message(message=f"[DEBUG] Error on attempt {attempt + 1}: {str(e)}")
                 
         if scrollAbleElement is None:
             Communicator.show_message(message="We are sorry but, No results found for your search query on googel maps....")
