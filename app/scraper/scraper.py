@@ -43,10 +43,16 @@ class Backend(Base):
     def init_driver(self):
         options = uc.ChromeOptions()
         if self.headlessMode == 1:
-                options.headless = True
+            options.headless = True
 
         prefs = {"profile.managed_default_content_settings.images": 2}
         options.add_experimental_option("prefs", prefs)
+
+        import os
+        chrome_bin = os.environ.get("CHROME_BIN")
+        if not chrome_bin or not isinstance(chrome_bin, str):
+            raise RuntimeError("CHROME_BIN environment variable is not set or not a string")
+        options.binary_location = chrome_bin
 
         Communicator.show_message("Wait checking for driver...\nIf you don't have webdriver in your machine it will install it")
 
@@ -54,7 +60,6 @@ class Backend(Base):
             if DRIVER_EXECUTABLE_PATH is not None:
                 self.driver = uc.Chrome(
                     driver_executable_path=DRIVER_EXECUTABLE_PATH, options=options)
-
             else:
                 self.driver = uc.Chrome(options=options)
 
