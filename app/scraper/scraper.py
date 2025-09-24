@@ -3,6 +3,7 @@ This module contain the code for backend,
 that will handle scraping process
 """
 
+
 from time import sleep
 from scraper.base import Base
 from scraper.scroller import Scroller
@@ -10,17 +11,17 @@ import os
 import subprocess
 from settings import DRIVER_EXECUTABLE_PATH
 from scraper.communicator import Communicator
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from webdriver_manager.chrome import ChromeDriverManager
 
-# Try importing undetected_chromedriver first, fallback to selenium
+# Try importing undetected_chromedriver first
 try:
     import undetected_chromedriver as uc
     UC_AVAILABLE = True
 except ImportError:
     UC_AVAILABLE = False
-    from selenium import webdriver
-    from selenium.webdriver.chrome.service import Service
-    from selenium.webdriver.chrome.options import Options
-    from webdriver_manager.chrome import ChromeDriverManager
 
 
 class Backend(Base):
