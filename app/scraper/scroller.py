@@ -39,65 +39,150 @@ class Scroller:
         max_attempts = 6
         
         for attempt in range(max_attempts):
-             try:
-                 Communicator.show_message(message=f"[DEBUG] Attempt {attempt + 1}/{max_attempts} - Checking for feed element...")
-                 
-                 # Wait a bit for the page to load
-                 time.sleep(5)
-                 
-                 # Try multiple selectors for the scrollable search results area
-                 scrollAbleElement = self.driver.execute_script(
-                     """
-                     // Try multiple selectors for Google Maps search results
-                     var selectors = [
-                         "[role='feed']",                    // Primary selector
-                         ".m6QErb",                          // Common Google Maps class
-                         "[data-value='Search results']",    // Alternative data attribute
-                         ".section-layout-root",             // Layout container
-                         ".section-scrollbox",               // Scrollbox container
-                         "[jsaction*='scroll']",             // Elements with scroll actions
-                         ".section-result",                  // Result section
-                         "[role='main'] [role='region']",    // Main region
-                         ".section-listbox",                 // Listbox container
-                         "[aria-label*='Results']"           // Aria label containing "Results"
-                     ];
-                     
-                     for (var i = 0; i < selectors.length; i++) {
-                         var element = document.querySelector(selectors[i]);
-                         if (element && element.scrollHeight > element.clientHeight) {
-                             console.log("Found scrollable element with selector: " + selectors[i]);
-                             return element;
-                         }
-                     }
-                     return null;
-                     """
-                 )
-                 
-                 if scrollAbleElement is not None:
-                     Communicator.show_message(message="[DEBUG] Scrollable element found! Starting to scroll...")
-                     break
-                 else:
-                     Communicator.show_message(message=f"[DEBUG] No scrollable element found on attempt {attempt + 1}")
-                     
-                     # Check if page has loaded at all
-                     page_loaded = self.driver.execute_script(
-                         """
-                         return document.querySelector("[role='main']") || 
-                                document.querySelector(".m6QErb") ||
-                                document.querySelector("[data-value='Directions']") ||
-                                document.querySelector("title")
-                         """
-                     )
-                     
-                     if page_loaded:
-                         Communicator.show_message(message="[DEBUG] Page loaded but no scrollable results found")
-                     else:
-                         Communicator.show_message(message="[DEBUG] Page may not be loaded yet")
-                         
-             except Exception as e:
-                 Communicator.show_message(message=f"[DEBUG] Error on attempt {attempt + 1}: {str(e)}")
+            try:
+                Communicator.show_message(message=f"[DEBUG] Attempt {attempt + 1}/{max_attempts} - Checking for feed element...")
+                
+                # Wait a bit for the page to load
+                time.sleep(5)
+                
+                # Try multiple selectors for the scrollable search results area
+                scrollAbleElement = self.driver.execute_script(
+                    """
+                    // Try multiple selectors for Google Maps search results
+                    var selectors = [
+                        "[role='feed']",                    // Primary selector
+                        ".m6QErb",                          // Common Google Maps class
+                        "[data-value='Search results']",    // Alternative data attribute
+                        ".section-layout-root",             // Layout container
+                        ".section-scrollbox",               // Scrollbox container
+                        "[jsaction*='scroll']",             // Elements with scroll actions
+                        ".section-result",                  // Result section
+                        "[role='main'] [role='region']",    // Main region
+                        ".section-listbox",                 // Listbox container
+                        "[aria-label*='Results']"           // Aria label containing "Results"
+                    ];
+                    
+                    for (var i = 0; i < selectors.length; i++) {
+                        var element = document.querySelector(selectors[i]);
+                        if (element && element.scrollHeight > element.clientHeight) {
+                            console.log("Found scrollable element with selector: " + selectors[i]);
+                            return element;
+                        }
+                    }
+                    return null;
+                    """
+                )
+                
+                if scrollAbleElement is not None:
+                    Communicator.show_message(message="[DEBUG] Scrollable element found! Starting to scroll...")
+                    break
+                else:
+                    Communicator.show_message(message=f"[DEBUG] No scrollable element found on attempt {attempt + 1}")
+                    
+                    # Comprehensive page analysis
+                    page_analysis = self.driver.execute_script(
+                        """
+                        var analysis = {
+                            title: document.title,
+                            url: window.location.href,
+                            hasResults: false,
+                            elements: [],
+                            possibleContainers: []
+                        };
+                        
+                        // Check for common Google Maps elements
+                        var commonSelectors = [
+                            "[role='main']", ".m6QErb", "[data-value='Directions']", 
+                            ".section-layout", ".section-result", ".section-listbox",
+                            "[role='region']", "[role='feed']", ".section-scrollbox"
+                        ];
+                        
+                        commonSelectors.forEach(function(selector) {
+                            var elements = document.querySelectorAll(selector);
+                            if (elements.length > 0) {
+                                analysis.elements.push(selector + ": " + elements.length);
+                            }
+                        });
+                        
+                        // Look for any scrollable divs
+                        var allDivs = document.querySelectorAll('div');
+                        for (var i = 0; i < Math.min(allDivs.length, 50); i++) {
+                            var div = allDivs[i];
+                            if (div.scrollHeight > div.clientHeight && div.clientHeight > 100) {
+                                var classes = div.className || 'no-class';
+                                var id = div.id || 'no-id';
+                                analysis.possibleContainers.push('scrollable-div: ' + classes.substring(0, 50) + ' id:' + id);
+                            }
+                        }
+                        
+                        // Check if there are any search results indicators
+                        var resultIndicators = document.querySelectorAll('[data-result-index], .section-result, [aria-label*="result"]');
+                        analysis.hasResults = resultIndicators.length > 0;
+                        
+                        return analysis;
+                        """
+                    )
+                    
+                    if page_analysis:
+                        Communicator.show_message(message=f"[DEBUG] Page Analysis:")
+                        Communicator.show_message(message=f"[DEBUG] Title: {page_analysis.get('title', 'Unknown')}")
+                        Communicator.show_message(message=f"[DEBUG] URL: {page_analysis.get('url', 'Unknown')}")
+                        Communicator.show_message(message=f"[DEBUG] Has Results: {page_analysis.get('hasResults', False)}")
+                        Communicator.show_message(message=f"[DEBUG] Elements found: {page_analysis.get('elements', [])}")
+                        Communicator.show_message(message=f"[DEBUG] Scrollable containers: {page_analysis.get('possibleContainers', [])}")
+                    
+                    # Try to find ANY scrollable element as a last resort
+                    if attempt >= 3:  # After 3 attempts, try more aggressive approach
+                        any_scrollable = self.driver.execute_script(
+                            """
+                            var allElements = document.querySelectorAll('*');
+                            for (var i = 0; i < allElements.length; i++) {
+                                var el = allElements[i];
+                                if (el.scrollHeight > el.clientHeight && el.clientHeight > 200) {
+                                    return el;
+                                }
+                            }
+                            return null;
+                            """
+                        )
+                        
+                        if any_scrollable:
+                            Communicator.show_message(message="[DEBUG] Found ANY scrollable element as fallback")
+                            scrollAbleElement = any_scrollable
+                            break
+                        
+            except Exception as e:
+                Communicator.show_message(message=f"[DEBUG] Error on attempt {attempt + 1}: {str(e)}")
                 
         if scrollAbleElement is None:
+            # Final check - maybe Google Maps itself is showing no results
+            google_no_results = self.driver.execute_script(
+                """
+                var noResultsIndicators = [
+                    'No results found',
+                    'لم يتم العثور على نتائج',
+                    'Couldn\\'t find',
+                    'Try a different search',
+                    'No places found'
+                ];
+                
+                var pageText = document.body.innerText || '';
+                for (var i = 0; i < noResultsIndicators.length; i++) {
+                    if (pageText.includes(noResultsIndicators[i])) {
+                        return 'Google Maps shows: ' + noResultsIndicators[i];
+                    }
+                }
+                
+                // Check if we're on the right page
+                if (!window.location.href.includes('google.com/maps')) {
+                    return 'Not on Google Maps page';
+                }
+                
+                return 'Unknown issue - page loaded but no scrollable results';
+                """
+            )
+            
+            Communicator.show_message(message=f"[DEBUG] Final diagnosis: {google_no_results}")
             Communicator.show_message(message="We are sorry but, No results found for your search query on googel maps....")
 
         else:
