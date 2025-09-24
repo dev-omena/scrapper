@@ -32,33 +32,48 @@ class Scroller:
     def scroll(self):
         """In case search results are not available"""
 
+        Communicator.show_message(message="[DEBUG] Starting scroll method...")
+        
         # Wait for Google Maps to load and search results to appear
-        try:
-            # Wait up to 30 seconds for the feed element to appear
-            wait = WebDriverWait(self.driver, 30)
-            
-            # First, wait for the page to load basic elements
-            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "[data-value='Search']")))
-            
-            # Additional wait for search results to load
-            time.sleep(3)
-            
-            # Now check for the scrollable feed element
-            scrollAbleElement = self.driver.execute_script(
-                """return document.querySelector("[role='feed']")"""
-            )
-            
-            if scrollAbleElement is None:
-                # Try waiting a bit more and check again
+        scrollAbleElement = None
+        max_attempts = 6
+        
+        for attempt in range(max_attempts):
+            try:
+                Communicator.show_message(message=f"[DEBUG] Attempt {attempt + 1}/{max_attempts} - Checking for feed element...")
+                
+                # Wait a bit for the page to load
                 time.sleep(5)
+                
+                # Check for the scrollable feed element
                 scrollAbleElement = self.driver.execute_script(
                     """return document.querySelector("[role='feed']")"""
                 )
                 
-        except Exception as e:
-            Communicator.show_message(message=f"Error waiting for page to load: {str(e)}")
-            scrollAbleElement = None
-            
+                if scrollAbleElement is not None:
+                    Communicator.show_message(message="[DEBUG] Feed element found! Starting to scroll...")
+                    break
+                else:
+                    Communicator.show_message(message=f"[DEBUG] Feed element not found on attempt {attempt + 1}")
+                    
+                    # Try alternative selectors
+                    alternative_element = self.driver.execute_script(
+                        """
+                        return document.querySelector("[role='main']") || 
+                               document.querySelector(".m6QErb") ||
+                               document.querySelector("[data-value='Directions']")
+                        """
+                    )
+                    
+                    if alternative_element:
+                        Communicator.show_message(message="[DEBUG] Alternative element found, page seems loaded")
+                        # Continue checking for feed element
+                    else:
+                        Communicator.show_message(message="[DEBUG] No page elements found, page may not be loaded")
+                        
+            except Exception as e:
+                Communicator.show_message(message=f"[DEBUG] Error on attempt {attempt + 1}: {str(e)}")
+                
         if scrollAbleElement is None:
             Communicator.show_message(message="We are sorry but, No results found for your search query on googel maps....")
 

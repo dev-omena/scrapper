@@ -321,11 +321,15 @@ class Backend(Base):
 
             # ==========================================
 
+            Communicator.show_message(f"[DEBUG] Opening URL: {link_of_page}")
             self.openingurl(url=link_of_page)
 
             Communicator.show_message("Working start...")
+            Communicator.show_message("[DEBUG] About to start scrolling...")
 
             self.scroller.scroll()
+            
+            Communicator.show_message("[DEBUG] Scrolling completed")
             
         except Exception as e:
             """
