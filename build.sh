@@ -51,17 +51,65 @@ echo "🔧 Installing ChromeDriver..."
 # Get Chrome version to match ChromeDriver version
 CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+\.\d+')
 CHROME_MAJOR_VERSION=$(echo $CHROME_VERSION | cut -d. -f1)
-CHROMEDRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_MAJOR_VERSION}")
 
 echo "Chrome version: $CHROME_VERSION"
 echo "Chrome major version: $CHROME_MAJOR_VERSION"
-echo "ChromeDriver version: $CHROMEDRIVER_VERSION"
 
-# Download and install ChromeDriver
-wget -O /tmp/chromedriver.zip "https://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip"
+# For Chrome 115+, use Chrome for Testing JSON API
+if [ "$CHROME_MAJOR_VERSION" -ge 115 ]; then
+    echo "🔧 Using Chrome for Testing API for Chrome $CHROME_MAJOR_VERSION..."
+    
+    # Get the latest ChromeDriver version for this Chrome milestone
+    CHROMEDRIVER_VERSION=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/latest-versions-per-milestone.json" | \
+        grep -o "\"$CHROME_MAJOR_VERSION\":{[^}]*\"version\":\"[^\"]*\"" | \
+        grep -o "\"version\":\"[^\"]*\"" | \
+        cut -d'"' -f4)
+    
+    if [ -z "$CHROMEDRIVER_VERSION" ]; then
+        echo "❌ No ChromeDriver version found for Chrome $CHROME_MAJOR_VERSION"
+        echo "🔧 Trying stable channel fallback..."
+        CHROMEDRIVER_VERSION=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions.json" | \
+            grep -o '"Stable":{[^}]*"version":"[^"]*"' | \
+            cut -d'"' -f8)
+    fi
+    
+    echo "ChromeDriver version: $CHROMEDRIVER_VERSION"
+    
+    # Download ChromeDriver from Chrome for Testing
+    DOWNLOAD_URL="https://storage.googleapis.com/chrome-for-testing-public/${CHROMEDRIVER_VERSION}/linux64/chromedriver-linux64.zip"
+    echo "Download URL: $DOWNLOAD_URL"
+    wget -O /tmp/chromedriver.zip "$DOWNLOAD_URL"
+else
+    echo "🔧 Using legacy API for Chrome $CHROME_MAJOR_VERSION..."
+    
+    # For Chrome 114 and older, use the legacy API
+    CHROMEDRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_MAJOR_VERSION}")
+    echo "ChromeDriver version: $CHROMEDRIVER_VERSION"
+    
+    # Download ChromeDriver from legacy endpoint
+    wget -O /tmp/chromedriver.zip "https://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip"
+fi
+
+# Extract and install ChromeDriver
 unzip /tmp/chromedriver.zip -d /tmp/
-chmod +x /tmp/chromedriver
-mv /tmp/chromedriver /usr/bin/chromedriver
+
+# Handle different zip structures
+if [ -f /tmp/chromedriver ]; then
+    # Legacy structure: chromedriver directly in zip
+    echo "🔧 Using legacy ChromeDriver structure"
+    chmod +x /tmp/chromedriver
+    mv /tmp/chromedriver /usr/bin/chromedriver
+elif [ -f /tmp/chromedriver-linux64/chromedriver ]; then
+    # Chrome for Testing structure: chromedriver in subdirectory
+    echo "🔧 Using Chrome for Testing ChromeDriver structure"
+    chmod +x /tmp/chromedriver-linux64/chromedriver
+    mv /tmp/chromedriver-linux64/chromedriver /usr/bin/chromedriver
+else
+    echo "❌ ChromeDriver binary not found in expected locations"
+    echo "Contents of /tmp after extraction:"
+    ls -la /tmp/
+    exit 1
+fi
 
 # Verify ChromeDriver installation
 if command -v chromedriver >/dev/null 2>&1; then

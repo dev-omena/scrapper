@@ -295,12 +295,26 @@ python web/app.py
    # Get Chrome version and install matching ChromeDriver
    CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+\.\d+')
    CHROME_MAJOR_VERSION=$(echo $CHROME_VERSION | cut -d. -f1)
-   CHROMEDRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_MAJOR_VERSION}")
    
-   # Download and install ChromeDriver
-   wget -O /tmp/chromedriver.zip "https://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip"
-   unzip /tmp/chromedriver.zip -d /tmp/
-   mv /tmp/chromedriver /usr/bin/chromedriver
+   # For Chrome 115+, use Chrome for Testing JSON API
+   if [ "$CHROME_MAJOR_VERSION" -ge 115 ]; then
+       # Get ChromeDriver version from Chrome for Testing API
+       CHROMEDRIVER_VERSION=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/latest-versions-per-milestone.json" | \
+           grep -o "\"$CHROME_MAJOR_VERSION\":{[^}]*\"version\":\"[^\"]*\"" | \
+           grep -o "\"version\":\"[^\"]*\"" | cut -d'"' -f4)
+       
+       # Download from Chrome for Testing
+       wget -O /tmp/chromedriver.zip "https://storage.googleapis.com/chrome-for-testing-public/${CHROMEDRIVER_VERSION}/linux64/chromedriver-linux64.zip"
+       unzip /tmp/chromedriver.zip -d /tmp/
+       mv /tmp/chromedriver-linux64/chromedriver /usr/bin/chromedriver
+   else
+       # For Chrome 114 and older, use legacy API
+       CHROMEDRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_MAJOR_VERSION}")
+       wget -O /tmp/chromedriver.zip "https://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip"
+       unzip /tmp/chromedriver.zip -d /tmp/
+       mv /tmp/chromedriver /usr/bin/chromedriver
+   fi
+   
    chmod +x /usr/bin/chromedriver
    ```
 
