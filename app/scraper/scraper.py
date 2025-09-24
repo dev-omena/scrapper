@@ -129,6 +129,7 @@ class Backend(Base):
         if self.headlessMode == 1:
             options.headless = True
             
+        # Core stability options
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-gpu")
@@ -138,8 +139,54 @@ class Backend(Base):
         options.add_argument("--disable-plugins")
         options.add_argument("--window-size=1920,1080")
         
-        # Disable images for faster loading
-        prefs = {"profile.managed_default_content_settings.images": 2}
+        # Additional stability options for Railway
+        options.add_argument("--disable-background-timer-throttling")
+        options.add_argument("--disable-backgrounding-occluded-windows")
+        options.add_argument("--disable-renderer-backgrounding")
+        options.add_argument("--disable-features=TranslateUI")
+        options.add_argument("--disable-ipc-flooding-protection")
+        options.add_argument("--disable-background-networking")
+        options.add_argument("--disable-default-apps")
+        options.add_argument("--disable-sync")
+        options.add_argument("--disable-translate")
+        options.add_argument("--hide-scrollbars")
+        options.add_argument("--metrics-recording-only")
+        options.add_argument("--mute-audio")
+        options.add_argument("--no-first-run")
+        options.add_argument("--safebrowsing-disable-auto-update")
+        options.add_argument("--disable-logging")
+        options.add_argument("--disable-permissions-api")
+        options.add_argument("--disable-presentation-api")
+        options.add_argument("--disable-print-preview")
+        options.add_argument("--disable-speech-api")
+        options.add_argument("--disable-file-system")
+        options.add_argument("--disable-notifications")
+        options.add_argument("--disable-prompt-on-repost")
+        
+        # Memory management
+        options.add_argument("--memory-pressure-off")
+        options.add_argument("--max_old_space_size=4096")
+        options.add_argument("--single-process")  # Use single process to avoid crashes
+        
+        # Network and timeout settings
+        options.add_argument("--aggressive-cache-discard")
+        options.add_argument("--disable-hang-monitor")
+        
+        # Use US-based user agent to avoid EU consent requirements
+        options.add_argument("--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36")
+        
+        # Disable images and other resources for faster loading and less memory usage
+        prefs = {
+            "profile.managed_default_content_settings.images": 2,
+            "profile.default_content_setting_values.notifications": 2,
+            "profile.managed_default_content_settings.stylesheets": 2,
+            "profile.managed_default_content_settings.cookies": 1,
+            "profile.managed_default_content_settings.javascript": 1,
+            "profile.managed_default_content_settings.plugins": 2,
+            "profile.managed_default_content_settings.popups": 2,
+            "profile.managed_default_content_settings.geolocation": 2,
+            "profile.managed_default_content_settings.media_stream": 2,
+        }
         options.add_experimental_option("prefs", prefs)
 
         if chrome_path:
@@ -182,8 +229,9 @@ class Backend(Base):
         
         # Essential options for deployment
         if self.headlessMode == 1:
-            options.add_argument("--headless")
+            options.add_argument("--headless=new")  # Use new headless mode
             
+        # Core stability options
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-gpu")
@@ -193,11 +241,59 @@ class Backend(Base):
         options.add_argument("--disable-plugins")
         options.add_argument("--window-size=1920,1080")
         options.add_argument("--disable-blink-features=AutomationControlled")
+        
+        # Additional stability options for Railway
+        options.add_argument("--disable-background-timer-throttling")
+        options.add_argument("--disable-backgrounding-occluded-windows")
+        options.add_argument("--disable-renderer-backgrounding")
+        options.add_argument("--disable-features=TranslateUI")
+        options.add_argument("--disable-ipc-flooding-protection")
+        options.add_argument("--disable-background-networking")
+        options.add_argument("--disable-default-apps")
+        options.add_argument("--disable-sync")
+        options.add_argument("--disable-translate")
+        options.add_argument("--hide-scrollbars")
+        options.add_argument("--metrics-recording-only")
+        options.add_argument("--mute-audio")
+        options.add_argument("--no-first-run")
+        options.add_argument("--safebrowsing-disable-auto-update")
+        options.add_argument("--disable-logging")
+        options.add_argument("--disable-permissions-api")
+        options.add_argument("--disable-presentation-api")
+        options.add_argument("--disable-print-preview")
+        options.add_argument("--disable-speech-api")
+        options.add_argument("--disable-file-system")
+        options.add_argument("--disable-notifications")
+        options.add_argument("--disable-prompt-on-repost")
+        
+        # Memory management
+        options.add_argument("--memory-pressure-off")
+        options.add_argument("--max_old_space_size=4096")
+        options.add_argument("--single-process")  # Use single process to avoid crashes
+        
+        # Network and timeout settings
+        options.add_argument("--aggressive-cache-discard")
+        options.add_argument("--disable-hang-monitor")
+        options.add_argument("--disable-prompt-on-repost")
+        
+        # Use US-based user agent to avoid EU consent requirements
+        options.add_argument("--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36")
+        
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
         options.add_experimental_option('useAutomationExtension', False)
         
-        # Disable images for faster loading
-        prefs = {"profile.managed_default_content_settings.images": 2}
+        # Disable images and other resources for faster loading and less memory usage
+        prefs = {
+            "profile.managed_default_content_settings.images": 2,
+            "profile.default_content_setting_values.notifications": 2,
+            "profile.managed_default_content_settings.stylesheets": 2,
+            "profile.managed_default_content_settings.cookies": 1,
+            "profile.managed_default_content_settings.javascript": 1,
+            "profile.managed_default_content_settings.plugins": 2,
+            "profile.managed_default_content_settings.popups": 2,
+            "profile.managed_default_content_settings.geolocation": 2,
+            "profile.managed_default_content_settings.media_stream": 2,
+        }
         options.add_experimental_option("prefs", prefs)
 
         if chrome_path:
@@ -454,7 +550,8 @@ class Backend(Base):
             We have make it by inserting search query in it
             """
 
-            link_of_page = f"https://www.google.com/maps/search/{querywithplus}/"
+            # Use URL parameters to bypass consent page on Railway
+            link_of_page = f"https://www.google.com/maps/search/{querywithplus}/?hl=en&gl=US&consent=PENDING&continue=https://www.google.com/maps"
 
             # ==========================================
 
