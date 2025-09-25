@@ -599,6 +599,8 @@ class Scroller:
                     """
                 )
                 
+                Communicator.show_message(message=f"[DEBUG] Search results extraction returned: {search_results_data}")
+                
                 if search_results_data and len(search_results_data) > 0:
                     Communicator.show_message(message=f"[DEBUG] Extracted {len(search_results_data)} businesses from search results")
                     for i, biz in enumerate(search_results_data[:3]):
@@ -621,6 +623,74 @@ class Scroller:
                         self.__init_parser()
                         self.parser.finalData = formatted_data
                         Communicator.show_message(message=f"[DEBUG] Saved {len(formatted_data)} businesses as backup data")
+                        
+                        # Force save to file immediately
+                        try:
+                            self.parser.init_data_saver()
+                            self.parser.data_saver.save(datalist=formatted_data)
+                            Communicator.show_message(message=f"[DEBUG] Force-saved {len(formatted_data)} businesses to Excel file")
+                        except Exception as save_error:
+                            Communicator.show_message(message=f"[DEBUG] Force save failed: {save_error}")
+                else:
+                    # Try a simpler extraction approach
+                    Communicator.show_message(message="[DEBUG] No businesses found with detailed extraction, trying simpler approach...")
+                    simple_extraction = self.driver.execute_script(
+                        """
+                        var results = [];
+                        
+                        // Try to find any text that looks like business names
+                        var allElements = document.querySelectorAll('*');
+                        var businessTexts = new Set();
+                        
+                        for (var i = 0; i < Math.min(allElements.length, 1000); i++) {
+                            var el = allElements[i];
+                            var text = el.innerText || el.textContent || '';
+                            
+                            // Look for text that might be business names (Arabic or English)
+                            if (text && text.length > 3 && text.length < 100) {
+                                // Check if it contains business-related keywords or Arabic text
+                                if (text.match(/café|coffee|restaurant|shop|store|مقهى|مطعم|محل|كافيه/i)) {
+                                    businessTexts.add(text.trim());
+                                }
+                            }
+                        }
+                        
+                        // Convert Set to Array and limit results
+                        return Array.from(businessTexts).slice(0, 10);
+                        """
+                    )
+                    
+                    if simple_extraction and len(simple_extraction) > 0:
+                        Communicator.show_message(message=f"[DEBUG] Simple extraction found {len(simple_extraction)} potential businesses")
+                        for i, name in enumerate(simple_extraction[:3]):
+                            Communicator.show_message(message=f"[DEBUG] Business {i+1}: {name}")
+                        
+                        # Format and save
+                        simple_formatted = []
+                        for name in simple_extraction:
+                            simple_formatted.append({
+                                'name': name,
+                                'address': 'Not available (simple extraction)',
+                                'phone': 'Not available',
+                                'website': 'Not available',
+                                'rating': 'Not available',
+                                'reviews': 'Not available'
+                            })
+                        
+                        if simple_formatted:
+                            self.__init_parser()
+                            self.parser.finalData = simple_formatted
+                            Communicator.show_message(message=f"[DEBUG] Saved {len(simple_formatted)} businesses from simple extraction")
+                            
+                            # Force save simple extraction too
+                            try:
+                                self.parser.init_data_saver()
+                                self.parser.data_saver.save(datalist=simple_formatted)
+                                Communicator.show_message(message=f"[DEBUG] Force-saved {len(simple_formatted)} businesses from simple extraction to Excel")
+                            except Exception as save_error:
+                                Communicator.show_message(message=f"[DEBUG] Simple extraction force save failed: {save_error}")
+                    else:
+                        Communicator.show_message(message="[DEBUG] No businesses found with simple extraction either")
                 
             except Exception as extract_error:
                 Communicator.show_message(message=f"[DEBUG] Search results extraction failed: {extract_error}")

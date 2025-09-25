@@ -688,6 +688,14 @@ class Parser(Base):
                         # Add to final data
                         self.finalData.extend(business_data)
                         Communicator.show_message(f"[DEBUG] Added {len(business_data)} businesses to final data")
+                        
+                        # Force save the data immediately
+                        try:
+                            self.init_data_saver()
+                            self.data_saver.save(datalist=self.finalData)
+                            Communicator.show_message(f"[DEBUG] Force-saved {len(self.finalData)} businesses to file")
+                        except Exception as save_error:
+                            Communicator.show_message(f"[DEBUG] Force save failed: {save_error}")
                     else:
                         Communicator.show_message("[DEBUG] No business data found in HTML source")
                         
