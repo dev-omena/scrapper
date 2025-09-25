@@ -3,6 +3,9 @@ set -e
 
 echo "🚀 Starting Google Maps Scraper on Railway..."
 
+# Create debug directory
+mkdir -p /tmp/debug
+
 # Set environment variables
 export DISPLAY=:99
 export PYTHONPATH=/app:/app/app
@@ -25,6 +28,9 @@ fi
 
 export CHROMEDRIVER_PATH=/usr/bin/chromedriver
 
+# Add Chrome debugging flags
+export CHROME_FLAGS="--headless=new --no-sandbox --disable-dev-shm-usage --window-size=1920,1080 --disable-gpu --remote-debugging-port=9222"
+
 # Start Xvfb for headless display (if available)
 echo "🖥️ Starting virtual display..."
 if command -v Xvfb >/dev/null 2>&1; then
@@ -46,7 +52,17 @@ else
     exit 1
 fi
 
-# Run the web application
-echo "🎯 Starting web application..."
+# Test Chrome before starting app
+echo "🧪 Testing Chrome functionality..."
+if google-chrome --version && google-chrome --headless --no-sandbox --disable-gpu --dump-dom https://www.google.com > /tmp/test.html; then
+    echo "✅ Chrome test successful"
+    echo "📄 Test HTML size: $(wc -c < /tmp/test.html) bytes"
+else
+    echo "❌ Chrome test failed"
+    exit 1
+fi
+
+# Run the web application with debug mode
+echo "🎯 Starting web application with debug mode..."
 cd /app
-python web/app.py
+SCRAPER_DEBUG=true python web/app.py

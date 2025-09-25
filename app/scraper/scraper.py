@@ -175,7 +175,16 @@ class Backend(Base):
         options.add_argument("--allow-running-insecure-content")
         options.add_argument("--disable-extensions")
         options.add_argument("--disable-plugins")
+        
+        # Important: Set proper window size for Railway
         options.add_argument("--window-size=1920,1080")
+        options.add_argument("--start-maximized")
+        
+        # Better user agent to avoid detection
+        options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        
+        # Additional flags for better compatibility
+        options.add_argument("--disable-features=VizDisplayCompositor")
         
         # Additional stability options for Railway
         options.add_argument("--disable-background-timer-throttling")
@@ -277,7 +286,16 @@ class Backend(Base):
         options.add_argument("--allow-running-insecure-content")
         options.add_argument("--disable-extensions")
         options.add_argument("--disable-plugins")
+        
+        # Important: Set proper window size for Railway
         options.add_argument("--window-size=1920,1080")
+        options.add_argument("--start-maximized")
+        
+        # Better user agent to avoid detection
+        options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        
+        # Additional flags for better compatibility
+        options.add_argument("--disable-features=VizDisplayCompositor")
         options.add_argument("--disable-blink-features=AutomationControlled")
         
         # Additional stability options for Railway
