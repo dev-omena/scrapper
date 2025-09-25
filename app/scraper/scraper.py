@@ -572,9 +572,13 @@ class Backend(Base):
                     
                     return 'No accept button found';
                     """
-                )
-                
-                Communicator.show_message(f"[DEBUG] Consent handling result: {consent_handled}")
+                    )
+                    
+                    Communicator.show_message(f"[DEBUG] Consent handling result: {consent_handled}")
+                    
+                except Exception as consent_error:
+                    Communicator.show_message(f"[DEBUG] Consent JavaScript failed: {consent_error}")
+                    consent_handled = "JavaScript execution failed"
                 
                 # If no button was found, try a more aggressive approach
                 if "No accept button found" in consent_handled:
