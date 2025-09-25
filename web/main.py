@@ -269,14 +269,33 @@ def health_check():
         "port": os.getenv('PORT', '5000')
     }, 200
 
+@app.route('/api/status')
+def api_status():
+    """Get detailed scraper status"""
+    global scraper_loaded, scraper_error
+    return {
+        "scraper_loaded": scraper_loaded,
+        "scraper_error": scraper_error,
+        "production": is_production,
+        "timestamp": datetime.now().isoformat(),
+        "remote_chrome_url": os.environ.get('REMOTE_CHROME_URL', 'Not set')
+    }, 200
+
 @app.route('/api/scrape', methods=['POST'])
 def api_scrape():
     """API endpoint for scraping"""
+    global scraper_loaded, scraper_error
+    
     if not scraper_loaded:
+        error_msg = f"Scraper modules are still loading. Please try again in a few seconds."
+        if scraper_error:
+            error_msg += f" Error: {scraper_error}"
+        
         return {
-            "error": "Scraper modules are still loading. Please try again in a few seconds.",
+            "error": error_msg,
             "scraper_loaded": False,
-            "status": "loading"
+            "status": "loading",
+            "scraper_error": scraper_error
         }, 503
     
     try:
@@ -512,17 +531,32 @@ def load_scraper_modules():
         time.sleep(5)  # Give Flask time to start and pass health check
         
         # Setup Chrome for production environment
-        setup_chrome_for_railway()
+        if is_production:
+            setup_chrome_for_railway()
         
-        # Try to import scraper modules
+        # Try to import scraper modules one by one for better error reporting
+        print("📦 Importing Backend...")
         from scraper.scraper import Backend
+        print("✅ Backend imported successfully")
+        
+        print("📦 Importing Communicator...")
         from scraper.communicator import Communicator
-        print("✅ Scraper modules loaded successfully!")
+        print("✅ Communicator imported successfully")
+        
+        print("📦 Importing WebCommunicator...")
+        from web_communicator import WebCommunicator
+        print("✅ WebCommunicator imported successfully")
+        
+        print("✅ All scraper modules loaded successfully!")
         scraper_loaded = True
+        scraper_error = None
         
     except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
         print(f"❌ Failed to load scraper modules: {e}")
-        scraper_error = str(e)
+        print(f"❌ Full error details: {error_details}")
+        scraper_error = f"{str(e)} | {error_details}"
         scraper_loaded = False
 
 if __name__ == '__main__':
