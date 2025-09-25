@@ -335,33 +335,54 @@ def api_scrape():
                 scraping_progress['message'] = 'Starting scraping process...'
                 scraping_progress['progress'] = 20
                 
-                # Add timeout to prevent infinite hanging
-                import signal
+                # Add timeout using threading Timer (works in background threads)
+                import threading
+                import time
                 
-                def timeout_handler(signum, frame):
-                    raise TimeoutError("Scraping process timed out")
+                scraping_completed = threading.Event()
+                scraping_error_occurred = False
+                scraping_exception = None
                 
-                # Set a 5-minute timeout for scraping
-                if is_production:
-                    signal.signal(signal.SIGALRM, timeout_handler)
-                    signal.alarm(300)  # 5 minutes timeout
+                def scraping_with_timeout():
+                    nonlocal scraping_error_occurred, scraping_exception
+                    try:
+                        # Run scraping
+                        backend.mainscraping()
+                        scraping_completed.set()
+                    except Exception as e:
+                        scraping_error_occurred = True
+                        scraping_exception = e
+                        scraping_completed.set()
                 
-                try:
-                    # Run scraping
-                    backend.mainscraping()
+                # Start scraping in a separate thread
+                scraping_thread = threading.Thread(target=scraping_with_timeout, daemon=True)
+                scraping_thread.start()
+                
+                # Wait for completion or timeout (5 minutes) with progress updates
+                timeout_seconds = 300  # 5 minutes
+                check_interval = 10   # Check every 10 seconds
+                elapsed = 0
+                
+                while elapsed < timeout_seconds:
+                    if scraping_completed.wait(timeout=check_interval):
+                        if scraping_error_occurred:
+                            raise scraping_exception
+                        # Scraping completed successfully
+                        break
                     
-                    if is_production:
-                        signal.alarm(0)  # Cancel timeout
-                        
-                except TimeoutError:
+                    elapsed += check_interval
+                    minutes_elapsed = elapsed // 60
+                    seconds_elapsed = elapsed % 60
+                    scraping_progress['message'] = f'Scraping in progress... ({minutes_elapsed}m {seconds_elapsed}s elapsed)'
+                    scraping_progress['progress'] = min(90, 20 + (elapsed / timeout_seconds) * 70)  # Progress from 20% to 90%
+                    print(f"⏰ Scraping progress: {elapsed}s elapsed")
+                    
+                else:
+                    # Timeout occurred
                     scraping_progress['status'] = 'error'
                     scraping_progress['message'] = 'Scraping timed out after 5 minutes. This may be due to Google Maps loading issues in Railway.'
                     print("❌ Scraping timed out")
                     return
-                except Exception as scraping_error:
-                    if is_production:
-                        signal.alarm(0)  # Cancel timeout
-                    raise scraping_error
                 
                 # Get extracted data
                 extracted_data = getattr(backend, 'finalData', []) or web_communicator.extracted_rows
