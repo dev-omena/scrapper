@@ -6,3 +6,5 @@ requests==2.31.0
 undetected-chromedriver
 pandas
 openpyxl
+gunicorn==21.2.0
+webdriver-manager==4.0.2

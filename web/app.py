@@ -84,11 +84,20 @@ app = Flask(__name__)
 CORS(app)
 
 # Production configuration
-if os.getenv('RAILWAY_ENVIRONMENT') or os.getenv('RENDER'):
+is_production = bool(os.getenv('RAILWAY_ENVIRONMENT')) or bool(os.getenv('RENDER')) or bool(os.getenv('RAILWAY_PROJECT_ID'))
+
+if is_production:
     app.config['DEBUG'] = False
     app.config['TESTING'] = False
+    print("🚀 Running in PRODUCTION mode")
+    
+    # Set Chrome binary paths for production
+    os.environ['CHROME_BIN'] = '/usr/bin/google-chrome'
+    os.environ['CHROMEDRIVER_PATH'] = '/usr/bin/chromedriver'
+    
 else:
     app.config['DEBUG'] = True
+    print("🔧 Running in DEVELOPMENT mode")
 
 # Global variable to store scraping progress
 scraping_progress = {
@@ -110,8 +119,26 @@ def serve_static(filename):
 
 @app.route('/test')
 def test():
-    """Simple test route"""
-    return "<h1>Flask App is Working!</h1><p>If you see this, the Flask server is running correctly.</p>"
+    """Health check route for Railway"""
+    try:
+        return {
+            "status": "healthy",
+            "message": "Orizon Google Maps Scraper is running",
+            "production": is_production,
+            "chrome_available": bool(os.getenv('CHROME_BIN')),
+            "timestamp": datetime.now().isoformat()
+        }, 200
+    except Exception as e:
+        return {
+            "status": "error", 
+            "message": str(e),
+            "timestamp": datetime.now().isoformat()
+        }, 500
+
+@app.route('/health')
+def health():
+    """Alternative health check route"""
+    return test()
 
 @app.route('/')
 def index():
@@ -578,10 +605,6 @@ if __name__ == '__main__':
     
     # Get port from environment (for production deployment)
     port = int(os.environ.get('PORT', 5000))
-    host = '0.0.0.0' if os.getenv('RAILWAY_ENVIRONMENT') or os.getenv('RENDER') else '127.0.0.1'
+    host = '0.0.0.0' if is_production else '127.0.0.1'
     
     app.run(host=host, port=port, debug=app.config['DEBUG'])
-    print("💾 Download API: http://localhost:5000/api/download/<file_type>")
-    print("\n✨ Orizon branding colors: #272860 (primary), #f8c800 (secondary)")
-    
-    app.run(debug=False, host='0.0.0.0', port=5000)

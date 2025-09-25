@@ -1,11 +1,20 @@
 
 [phases.setup]
-nixPkgs = ["...", "chromium"]
+nixPkgs = ["python39", "chromium", "chromedriver-chromium"]
 
 [phases.install]
 cmds = [
-    "curl -sSL https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -o chrome.deb",
-    "apt-get update",
-    "apt-get install -y ./chrome.deb",
-    "rm chrome.deb"
+    "pip install --upgrade pip",
+    "pip install -r requirements.txt"
 ]
+
+[phases.build]
+cmds = ["echo 'Build phase complete'"]
+
+[start]
+cmd = "gunicorn --bind 0.0.0.0:$PORT app:app --timeout 300 --workers 2"
+
+[variables]
+PYTHONPATH = "/app:/app/app"
+CHROME_BIN = "/nix/store/*/bin/chromium"
+CHROMEDRIVER_PATH = "/nix/store/*/bin/chromedriver"
