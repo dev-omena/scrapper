@@ -503,13 +503,20 @@ class Backend(Base):
             if "consent.google.com" in current_url or "consent" in page_title.lower():
                 Communicator.show_message("[DEBUG] Detected Google consent page, attempting to handle...")
                 
-                # Try to find and click accept buttons
-                consent_handled = self.driver.execute_script(
-                    """
-                    // Try multiple strategies to handle consent
-                    var acceptButtons = [
-                        'button[aria-label*="Accept"]',
-                        'button[aria-label*="Accepteren"]',  // Dutch
+                # Add timeout for consent handling to prevent hanging
+                import time
+                start_time = time.time()
+                max_consent_time = 30  # 30 seconds max for consent handling
+                
+                # Try to find and click accept buttons with timeout protection
+                try:
+                    Communicator.show_message("[DEBUG] Executing consent handling JavaScript...")
+                    consent_handled = self.driver.execute_script(
+                        """
+                        // Try multiple strategies to handle consent
+                        var acceptButtons = [
+                            'button[aria-label*="Accept"]',
+                            'button[aria-label*="Accepteren"]',  // Dutch
                         'button[aria-label*="Akzeptieren"]', // German
                         'button[aria-label*="Accepter"]',    // French
                         '[data-value="accept"]',

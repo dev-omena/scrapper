@@ -312,18 +312,23 @@ def api_scrape():
                 scraping_progress['message'] = 'Initializing browser...'
                 scraping_progress['progress'] = 10
                 
-                # Setup Chrome environment for Railway container
+                # Setup Chrome environment - use remote Chrome connection for Railway
                 if is_production:
-                    print("🧪 Setting up Chrome for Railway...")
+                    print("🌐 Setting up Remote Chrome connection for Railway...")
                     
-                    # Set environment variables for the scraper
-                    os.environ['CHROME_BIN'] = '/usr/bin/google-chrome'
-                    os.environ['CHROMEDRIVER_PATH'] = '/usr/bin/chromedriver'
-                    os.environ['DISPLAY'] = ':99'
-                    
-                    # Skip Chrome test - proceed directly to scraping
-                    print("🚀 Skipping Chrome test - proceeding directly to scraping with optimized settings...")
-                    print("🔧 Chrome environment configured for Railway container")
+                    # Check if user provided remote Chrome URL
+                    remote_chrome_url = os.environ.get('REMOTE_CHROME_URL')
+                    if remote_chrome_url:
+                        print(f"🔗 Using Remote Chrome at: {remote_chrome_url}")
+                        os.environ['REMOTE_CHROME_URL'] = remote_chrome_url
+                        print("✅ Remote Chrome connection configured")
+                    else:
+                        print("⚠️ No REMOTE_CHROME_URL provided - falling back to local Railway Chrome")
+                        # Set environment variables for the scraper
+                        os.environ['CHROME_BIN'] = '/usr/bin/google-chrome'
+                        os.environ['CHROMEDRIVER_PATH'] = '/usr/bin/chromedriver'
+                        os.environ['DISPLAY'] = ':99'
+                        print("🔧 Railway Chrome environment configured as fallback")
                 
                 # Initialize the backend
                 backend = Backend(
