@@ -32,6 +32,18 @@ is_production = bool(os.getenv('RAILWAY_ENVIRONMENT')) or bool(os.getenv('RAILWA
 scraper_loaded = False
 scraper_error = None
 
+# Global scraping progress
+scraping_progress = {
+    'status': 'idle',
+    'progress': 0,
+    'message': 'Ready to start scraping',
+    'results': None,
+    'extracted_data': []
+}
+
+# Global web communicator instance
+web_communicator = None
+
 print(f"🚀 Starting Orizon Google Maps Scraper (Production: {is_production})")
 
 @app.route('/')
@@ -204,13 +216,39 @@ def get_fallback_html():
             }}
 
             async function pollProgress() {{
-                // Simple progress polling - you can enhance this
-                setTimeout(() => {{
-                    document.getElementById('resultsSection').style.display = 'block';
-                    document.getElementById('resultsText').textContent = 'Scraping in progress... (Full functionality loading)';
-                    document.getElementById('startButton').disabled = false;
-                    document.getElementById('startButton').textContent = 'Start Scraping';
-                }}, 3000);
+                try {{
+                    const response = await fetch('/api/progress');
+                    const progress = await response.json();
+                    
+                    // Update status text
+                    document.getElementById('statusText').textContent = progress.message || 'Processing...';
+                    
+                    // Check status
+                    if (progress.status === 'completed') {{
+                        document.getElementById('resultsSection').style.display = 'block';
+                        document.getElementById('resultsText').textContent = `Scraping completed! Found ${{progress.extracted_data ? progress.extracted_data.length : 0}} businesses.`;
+                        document.getElementById('startButton').disabled = false;
+                        document.getElementById('startButton').textContent = 'Start Scraping';
+                        
+                        // Add download button
+                        const downloadBtn = document.createElement('a');
+                        downloadBtn.href = '/api/download/excel';
+                        downloadBtn.textContent = '📊 Download Excel';
+                        downloadBtn.style.cssText = 'display: inline-block; margin-top: 10px; padding: 10px 20px; background: #f8c800; color: #272860; text-decoration: none; border-radius: 5px; font-weight: bold;';
+                        document.getElementById('resultsSection').appendChild(downloadBtn);
+                        
+                    }} else if (progress.status === 'error') {{
+                        document.getElementById('statusText').textContent = progress.message || 'An error occurred';
+                        document.getElementById('startButton').disabled = false;
+                        document.getElementById('startButton').textContent = 'Start Scraping';
+                    }} else {{
+                        // Continue polling
+                        setTimeout(pollProgress, 2000);
+                    }}
+                }} catch (error) {{
+                    console.error('Error polling progress:', error);
+                    setTimeout(pollProgress, 5000); // Retry after 5 seconds
+                }}
             }}
         </script>
     </body>
@@ -233,12 +271,138 @@ def health_check():
 
 @app.route('/api/scrape', methods=['POST'])
 def api_scrape():
-    """API endpoint for scraping (placeholder for now)"""
-    return {
-        "message": "Scraping functionality is loading...",
-        "status": "accepted",
-        "note": "Full scraper modules are being loaded in background"
-    }, 202
+    """API endpoint for scraping"""
+    if not scraper_loaded:
+        return {
+            "error": "Scraper modules are still loading. Please try again in a few seconds.",
+            "scraper_loaded": False,
+            "status": "loading"
+        }, 503
+    
+    try:
+        data = request.get_json()
+        search_query = data.get('search_query', '').strip()
+        
+        if not search_query:
+            return {"error": "Search query is required"}, 400
+        
+        # Start scraping in background thread
+        import threading
+        
+        def run_scraping():
+            global scraping_progress, web_communicator
+            
+            try:
+                scraping_progress['status'] = 'running'
+                scraping_progress['message'] = 'Starting scraper...'
+                scraping_progress['progress'] = 0
+                
+                from scraper.scraper import Backend
+                from web_communicator import WebCommunicator
+                from scraper.communicator import Communicator
+                
+                # Create web communicator
+                web_communicator = WebCommunicator()
+                web_communicator.set_search_query(search_query)
+                web_communicator.set_output_format('excel')
+                
+                # Set the web communicator as the frontend object
+                Communicator.set_frontend_object(web_communicator)
+                
+                scraping_progress['message'] = 'Initializing browser...'
+                scraping_progress['progress'] = 10
+                
+                # Initialize the backend
+                backend = Backend(
+                    searchquery=search_query,
+                    outputformat='excel',
+                    healdessmode=1  # Always headless in production
+                )
+                
+                scraping_progress['message'] = 'Starting scraping process...'
+                scraping_progress['progress'] = 20
+                
+                # Run scraping
+                backend.mainscraping()
+                
+                # Get extracted data
+                extracted_data = getattr(backend, 'finalData', []) or web_communicator.extracted_rows
+                
+                scraping_progress['status'] = 'completed'
+                scraping_progress['progress'] = 100
+                scraping_progress['message'] = f'Scraping completed! Found {len(extracted_data)} businesses.'
+                scraping_progress['extracted_data'] = extracted_data
+                
+                print(f"✅ Scraping completed for: {search_query} - Found {len(extracted_data)} results")
+                
+            except Exception as e:
+                scraping_progress['status'] = 'error'
+                scraping_progress['message'] = f'Error: {str(e)}'
+                scraping_progress['progress'] = 0
+                print(f"❌ Scraping error: {e}")
+        
+        # Start scraping thread
+        scraping_thread = threading.Thread(target=run_scraping, daemon=True)
+        scraping_thread.start()
+        
+        return {
+            "message": "Scraping started successfully!",
+            "search_query": search_query,
+            "status": "started"
+        }, 200
+        
+    except Exception as e:
+        return {"error": f"Failed to start scraping: {str(e)}"}, 500
+
+@app.route('/api/progress')
+def api_progress():
+    """Get scraping progress"""
+    global scraping_progress, web_communicator
+    
+    try:
+        if web_communicator:
+            # Update progress from communicator
+            scraping_progress['progress'] = web_communicator.get_progress()
+            scraping_progress['message'] = web_communicator.get_latest_message()
+            
+            # Check if completed
+            if web_communicator.get_progress() >= 100:
+                scraping_progress['status'] = 'completed'
+                scraping_progress['extracted_data'] = web_communicator.extracted_rows
+        
+        return jsonify(scraping_progress)
+    except Exception as e:
+        return {"error": f"Failed to get progress: {str(e)}"}, 500
+
+@app.route('/api/download/excel')
+def download_excel():
+    """Download Excel file with scraped data"""
+    try:
+        import pandas as pd
+        from io import BytesIO
+        from flask import send_file
+        
+        if not scraping_progress.get('extracted_data'):
+            return {"error": "No data available to download"}, 404
+        
+        # Create Excel file
+        df = pd.DataFrame(scraping_progress['extracted_data'])
+        output = BytesIO()
+        
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, sheet_name='Scraped Data', index=False)
+        
+        output.seek(0)
+        
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name='google_maps_scraper_results.xlsx'
+        )
+        
+    except Exception as e:
+        return {"error": f"Failed to generate Excel file: {str(e)}"}, 500
 
 def load_scraper_modules():
     """Load scraper modules in background"""
