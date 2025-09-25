@@ -312,6 +312,28 @@ def api_scrape():
                 scraping_progress['message'] = 'Initializing browser...'
                 scraping_progress['progress'] = 10
                 
+                # Test Chrome setup for Railway container environment
+                if is_production:
+                    try:
+                        print("🧪 Testing Chrome setup in Railway...")
+                        from chrome_wrapper import test_chrome_driver
+                        
+                        if not test_chrome_driver():
+                            raise Exception("Chrome WebDriver test failed in Railway environment")
+                        
+                        print("✅ Chrome WebDriver test passed!")
+                        
+                        # Set environment variables for the scraper
+                        os.environ['CHROME_BIN'] = '/usr/bin/google-chrome'
+                        os.environ['CHROMEDRIVER_PATH'] = '/usr/bin/chromedriver'
+                        os.environ['DISPLAY'] = ':99'
+                        
+                    except Exception as chrome_error:
+                        scraping_progress['status'] = 'error'
+                        scraping_progress['message'] = f'Chrome setup failed: {str(chrome_error)}'
+                        print(f"❌ Chrome setup failed: {chrome_error}")
+                        return
+                
                 # Initialize the backend
                 backend = Backend(
                     searchquery=search_query,
@@ -404,6 +426,41 @@ def download_excel():
     except Exception as e:
         return {"error": f"Failed to generate Excel file: {str(e)}"}, 500
 
+def setup_chrome_for_railway():
+    """Setup Chrome environment for Railway container"""
+    if is_production:
+        print("🔧 Setting up Chrome for Railway container...")
+        
+        # Set Chrome binary and driver paths
+        os.environ['CHROME_BIN'] = '/usr/bin/google-chrome'
+        os.environ['CHROMEDRIVER_PATH'] = '/usr/bin/chromedriver'
+        
+        # Set display for headless mode
+        os.environ['DISPLAY'] = ':99'
+        
+        # Chrome flags optimized for Railway containers
+        chrome_flags = [
+            '--headless=new',
+            '--no-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-gpu',
+            '--disable-extensions',
+            '--disable-plugins',
+            '--disable-images',
+            '--disable-web-security',
+            '--disable-features=VizDisplayCompositor',
+            '--remote-debugging-port=9222',
+            '--window-size=1920,1080',
+            '--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+            '--disable-background-timer-throttling',
+            '--disable-backgrounding-occluded-windows',
+            '--disable-renderer-backgrounding',
+            '--disable-background-networking'
+        ]
+        
+        os.environ['CHROME_FLAGS'] = ' '.join(chrome_flags)
+        print(f"✅ Chrome configured with {len(chrome_flags)} optimization flags")
+
 def load_scraper_modules():
     """Load scraper modules in background"""
     global scraper_loaded, scraper_error
@@ -411,6 +468,9 @@ def load_scraper_modules():
     try:
         print("📦 Loading scraper modules in background...")
         time.sleep(5)  # Give Flask time to start and pass health check
+        
+        # Setup Chrome for production environment
+        setup_chrome_for_railway()
         
         # Try to import scraper modules
         from scraper.scraper import Backend
