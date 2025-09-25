@@ -556,7 +556,75 @@ class Scroller:
 
         else:
             Communicator.show_message(message="Starting scrolling")
-            
+        
+        # Try to extract basic business info from search results before detailed parsing
+        if is_railway:
+            try:
+                Communicator.show_message(message="[DEBUG] Railway - extracting basic business info from search results...")
+                search_results_data = self.driver.execute_script(
+                    """
+                    var businesses = [];
+                    
+                    // Look for business cards in the search results
+                    var businessCards = document.querySelectorAll('[data-result-index], .section-result, [role="article"], [jsaction*="click"]');
+                    
+                    for (var i = 0; i < Math.min(businessCards.length, 10); i++) {
+                        var card = businessCards[i];
+                        var name = '';
+                        var address = '';
+                        var rating = '';
+                        
+                        // Try to extract business name
+                        var nameEl = card.querySelector('h3, .section-result-title, [role="heading"]');
+                        if (nameEl) name = nameEl.innerText || nameEl.textContent || '';
+                        
+                        // Try to extract address
+                        var addressEl = card.querySelector('.section-result-location, [data-value="directions"], .section-result-details');
+                        if (addressEl) address = addressEl.innerText || addressEl.textContent || '';
+                        
+                        // Try to extract rating
+                        var ratingEl = card.querySelector('[role="img"][aria-label*="star"], .section-result-rating');
+                        if (ratingEl) rating = ratingEl.getAttribute('aria-label') || ratingEl.innerText || '';
+                        
+                        if (name && name.length > 2) {
+                            businesses.push({
+                                name: name.trim(),
+                                address: address.trim(),
+                                rating: rating.trim()
+                            });
+                        }
+                    }
+                    
+                    return businesses;
+                    """
+                )
+                
+                if search_results_data and len(search_results_data) > 0:
+                    Communicator.show_message(message=f"[DEBUG] Extracted {len(search_results_data)} businesses from search results")
+                    for i, biz in enumerate(search_results_data[:3]):
+                        Communicator.show_message(message=f"[DEBUG] Business {i+1}: {biz.get('name', 'Unknown')} - {biz.get('address', 'No address')[:50]}...")
+                    
+                    # Convert to the expected format and save
+                    formatted_data = []
+                    for biz in search_results_data:
+                        formatted_data.append({
+                            'name': biz.get('name', 'Unknown'),
+                            'address': biz.get('address', 'Not available'),
+                            'phone': 'Not available (search results)',
+                            'website': 'Not available (search results)', 
+                            'rating': biz.get('rating', 'Not available'),
+                            'reviews': 'Not available (search results)'
+                        })
+                    
+                    # Save the data immediately as a backup
+                    if formatted_data:
+                        self.__init_parser()
+                        self.parser.finalData = formatted_data
+                        Communicator.show_message(message=f"[DEBUG] Saved {len(formatted_data)} businesses as backup data")
+                
+            except Exception as extract_error:
+                Communicator.show_message(message=f"[DEBUG] Search results extraction failed: {extract_error}")
+        
             # Debug the scrollable element we're about to use
             element_debug = self.driver.execute_script(
                 """

@@ -642,9 +642,57 @@ class Parser(Base):
                 self.parse()
 
         except Exception as e:
+            error_msg = str(e)
             Communicator.show_message(
-                f"Error occurred while parsing the locations. Error: {str(e)}"
+                f"Error occurred while parsing the locations. Error: {error_msg}"
             )
+            
+            # Railway fallback - if DevTools disconnected, try HTML source extraction
+            if "disconnected: not connected to DevTools" in error_msg:
+                Communicator.show_message("[DEBUG] DevTools disconnected during parsing - attempting HTML source extraction...")
+                try:
+                    # Try to get the current page source
+                    page_source = self.driver.page_source
+                    Communicator.show_message(f"[DEBUG] Page source length: {len(page_source)} characters")
+                    
+                    # Extract business data from HTML source using regex
+                    import re
+                    business_data = []
+                    
+                    # Look for business name patterns in the HTML
+                    name_patterns = [
+                        r'"([^"]+)","[^"]*","[^"]*",\d+,\d+,\d+',  # Google Maps data format
+                        r'aria-label="([^"]+)"[^>]*role="button"',  # Aria-label buttons
+                        r'<h1[^>]*>([^<]+)</h1>',  # H1 titles
+                        r'<h2[^>]*>([^<]+)</h2>',  # H2 titles
+                    ]
+                    
+                    for pattern in name_patterns:
+                        matches = re.findall(pattern, page_source)
+                        for match in matches[:10]:  # Limit to first 10
+                            if len(match) > 3 and len(match) < 100:  # Reasonable business name length
+                                business_data.append({
+                                    'name': match.strip(),
+                                    'address': 'Not available (HTML extraction)',
+                                    'phone': 'Not available',
+                                    'website': 'Not available',
+                                    'rating': 'Not available',
+                                    'reviews': 'Not available'
+                                })
+                    
+                    if business_data:
+                        Communicator.show_message(f"[DEBUG] Extracted {len(business_data)} businesses from HTML source")
+                        for i, biz in enumerate(business_data[:3]):
+                            Communicator.show_message(f"[DEBUG] Business {i+1}: {biz['name']}")
+                        
+                        # Add to final data
+                        self.finalData.extend(business_data)
+                        Communicator.show_message(f"[DEBUG] Added {len(business_data)} businesses to final data")
+                    else:
+                        Communicator.show_message("[DEBUG] No business data found in HTML source")
+                        
+                except Exception as html_error:
+                    Communicator.show_message(f"[DEBUG] HTML source extraction failed: {html_error}")
 
         finally:
             self.init_data_saver()
