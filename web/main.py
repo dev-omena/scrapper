@@ -335,8 +335,33 @@ def api_scrape():
                 scraping_progress['message'] = 'Starting scraping process...'
                 scraping_progress['progress'] = 20
                 
-                # Run scraping
-                backend.mainscraping()
+                # Add timeout to prevent infinite hanging
+                import signal
+                
+                def timeout_handler(signum, frame):
+                    raise TimeoutError("Scraping process timed out")
+                
+                # Set a 5-minute timeout for scraping
+                if is_production:
+                    signal.signal(signal.SIGALRM, timeout_handler)
+                    signal.alarm(300)  # 5 minutes timeout
+                
+                try:
+                    # Run scraping
+                    backend.mainscraping()
+                    
+                    if is_production:
+                        signal.alarm(0)  # Cancel timeout
+                        
+                except TimeoutError:
+                    scraping_progress['status'] = 'error'
+                    scraping_progress['message'] = 'Scraping timed out after 5 minutes. This may be due to Google Maps loading issues in Railway.'
+                    print("❌ Scraping timed out")
+                    return
+                except Exception as scraping_error:
+                    if is_production:
+                        signal.alarm(0)  # Cancel timeout
+                    raise scraping_error
                 
                 # Get extracted data
                 extracted_data = getattr(backend, 'finalData', []) or web_communicator.extracted_rows

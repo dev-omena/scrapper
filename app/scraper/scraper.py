@@ -645,11 +645,17 @@ class Backend(Base):
             self.openingurl(url=link_of_page)
 
             # Check if we're on a consent page and handle it
+            Communicator.show_message("[DEBUG] Checking for consent page...")
             self.handle_consent_page()
+            Communicator.show_message("[DEBUG] Consent page handling completed")
 
             Communicator.show_message("Working start...")
             Communicator.show_message("[DEBUG] About to start scrolling...")
 
+            # Add Railway-specific timeout and progress reporting
+            if os.environ.get('RAILWAY_ENVIRONMENT'):
+                Communicator.show_message("[DEBUG] Railway environment detected - using optimized scrolling...")
+                
             self.scroller.scroll()
             
             Communicator.show_message("[DEBUG] Scrolling completed")

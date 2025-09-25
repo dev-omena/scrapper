@@ -1,4 +1,5 @@
 import time
+import os
 try:
     from scraper.communicator import Communicator
     from scraper.common import Common
@@ -34,16 +35,25 @@ class Scroller:
 
         Communicator.show_message(message="[DEBUG] Starting scroll method...")
         
+        # Railway-specific optimizations
+        is_railway = os.environ.get('RAILWAY_ENVIRONMENT')
+        if is_railway:
+            Communicator.show_message(message="[DEBUG] Railway environment - using optimized settings")
+            max_attempts = 10  # More attempts for Railway
+            base_wait_time = 8  # Longer wait time for Railway
+        else:
+            max_attempts = 6
+            base_wait_time = 5
+        
         # Wait for Google Maps to load and search results to appear
         scrollAbleElement = None
-        max_attempts = 6
         
         for attempt in range(max_attempts):
             try:
                 Communicator.show_message(message=f"[DEBUG] Attempt {attempt + 1}/{max_attempts} - Checking for feed element...")
                 
-                # Wait a bit for the page to load
-                time.sleep(5)
+                # Wait a bit for the page to load (longer for Railway)
+                time.sleep(base_wait_time)
                 
                 # Try multiple selectors for the scrollable search results area
                 scrollAbleElement = self.driver.execute_script(
@@ -276,6 +286,46 @@ class Scroller:
              )
              
              Communicator.show_message(message=f"[DEBUG] Final diagnosis: {google_no_results}")
+             
+             # Railway fallback - try to extract any visible results without scrolling
+             if is_railway:
+                 Communicator.show_message(message="[DEBUG] Railway fallback - attempting to extract visible results...")
+                 visible_results = self.driver.execute_script(
+                     """
+                     var results = [];
+                     var selectors = [
+                         'a[data-result-index]',
+                         'a[href*="/maps/place/"]',
+                         'div[data-result-index]',
+                         '.section-result',
+                         '[role="article"]',
+                         'a[jsaction*="click"]'
+                     ];
+                     
+                     selectors.forEach(function(selector) {
+                         var elements = document.querySelectorAll(selector);
+                         for (var i = 0; i < Math.min(elements.length, 10); i++) {
+                             var el = elements[i];
+                             var href = el.href || (el.querySelector('a') ? el.querySelector('a').href : '');
+                             if (href && href.includes('maps/place')) {
+                                 results.push(href);
+                             }
+                         }
+                     });
+                     
+                     return [...new Set(results)]; // Remove duplicates
+                     """
+                 )
+                 
+                 if visible_results and len(visible_results) > 0:
+                     Communicator.show_message(message=f"[DEBUG] Found {len(visible_results)} visible results without scrolling")
+                     self.__allResultsLinks = visible_results
+                     self.__init_parser()
+                     self.start_parsing()
+                     return
+                 else:
+                     Communicator.show_message(message="[DEBUG] No visible results found in Railway fallback")
+             
              Communicator.show_message(message="We are sorry but, No results found for your search query on googel maps....")
 
         else:
