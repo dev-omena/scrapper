@@ -3,13 +3,12 @@
 builder = "NIXPACKS"
 
 [deploy]
-startCommand = "python railway_app.py"
+startCommand = "python3 main.py"
 healthcheckPath = "/"
 healthcheckTimeout = 30
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3
 
 [variables]
-PYTHONPATH = "/app:/app/app"
-CHROME_BIN = "/usr/bin/google-chrome"
-CHROMEDRIVER_PATH = "/usr/bin/chromedriver"
+RAILWAY_ENVIRONMENT = "1"
+PYTHONPATH = "/app"
