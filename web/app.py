@@ -142,7 +142,22 @@ def health():
 
 @app.route('/')
 def index():
-    """Serve the main HTML page"""
+    """Serve the main HTML page or health check for Railway"""
+    # If this is a health check request (no Accept header for HTML), return simple status
+    accept_header = request.headers.get('Accept', '')
+    user_agent = request.headers.get('User-Agent', '').lower()
+    
+    # Railway health check or simple curl request
+    if 'text/html' not in accept_header or 'curl' in user_agent or 'healthcheck' in user_agent:
+        return {
+            "status": "healthy",
+            "service": "Orizon Google Maps Scraper",
+            "version": "1.0.0",
+            "production": is_production,
+            "timestamp": datetime.now().isoformat()
+        }, 200
+    
+    # Regular browser request - serve the HTML interface
     try:
         html_path = os.path.join(os.path.dirname(__file__), 'index.html')
         with open(html_path, 'r', encoding='utf-8') as f:
@@ -151,7 +166,16 @@ def index():
         # Return HTML content with proper headers
         return Response(html_content, mimetype='text/html')
     except FileNotFoundError:
-        return "Web interface not found. Please ensure index.html exists.", 404
+        # Fallback to simple HTML if index.html is missing
+        return """
+        <!DOCTYPE html>
+        <html><head><title>Orizon Google Maps Scraper</title></head>
+        <body>
+        <h1>🚀 Orizon Google Maps Scraper</h1>
+        <p>The service is running successfully!</p>
+        <p><a href="/test">Health Check</a></p>
+        </body></html>
+        """, 200
 
 @app.route('/api/scrape', methods=['POST'])
 def scrape():

@@ -1,6 +1,6 @@
 
 [phases.setup]
-nixPkgs = ["python39", "chromium", "chromedriver-chromium"]
+nixPkgs = ["python39", "chromium"]
 
 [phases.install]
 cmds = [
@@ -12,9 +12,10 @@ cmds = [
 cmds = ["echo 'Build phase complete'"]
 
 [start]
-cmd = "gunicorn --bind 0.0.0.0:$PORT app:app --timeout 300 --workers 2"
+cmd = "python start_railway.py"
 
 [variables]
-PYTHONPATH = "/app:/app/app"
+PYTHONPATH = "/app"
 CHROME_BIN = "/nix/store/*/bin/chromium"
 CHROMEDRIVER_PATH = "/nix/store/*/bin/chromedriver"
+RAILWAY_ENVIRONMENT = "1"

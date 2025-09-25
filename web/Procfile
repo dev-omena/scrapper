@@ -1,2 +1,2 @@
 # Railway Deployment Configuration
-web: python start_railway.py
+web: python app.py
