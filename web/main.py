@@ -408,8 +408,27 @@ def api_scrape():
                     print("❌ Scraping timed out")
                     return
                 
-                # Get extracted data
-                extracted_data = getattr(backend, 'finalData', []) or web_communicator.extracted_rows
+                # Get extracted data from multiple possible sources
+                extracted_data = []
+                
+                # Try to get data from backend
+                if hasattr(backend, 'finalData') and backend.finalData:
+                    extracted_data = backend.finalData
+                    print(f"[DEBUG] Got {len(extracted_data)} results from backend.finalData")
+                
+                # Try to get data from scroller/parser
+                elif hasattr(backend, 'scroller') and hasattr(backend.scroller, 'parser') and hasattr(backend.scroller.parser, 'finalData'):
+                    extracted_data = backend.scroller.parser.finalData
+                    print(f"[DEBUG] Got {len(extracted_data)} results from scroller.parser.finalData")
+                
+                # Try web communicator as fallback
+                elif web_communicator and hasattr(web_communicator, 'extracted_rows'):
+                    extracted_data = web_communicator.extracted_rows
+                    print(f"[DEBUG] Got {len(extracted_data)} results from web_communicator.extracted_rows")
+                
+                print(f"[DEBUG] Final extracted_data length: {len(extracted_data)}")
+                if extracted_data:
+                    print(f"[DEBUG] Sample data: {extracted_data[0] if extracted_data else 'None'}")
                 
                 scraping_progress['status'] = 'completed'
                 scraping_progress['progress'] = 100
@@ -464,12 +483,56 @@ def download_excel():
         import pandas as pd
         from io import BytesIO
         from flask import send_file
+        import glob
+        import os
         
-        if not scraping_progress.get('extracted_data'):
-            return {"error": "No data available to download"}, 404
+        # Try to get data from multiple sources
+        extracted_data = []
         
-        # Create Excel file
-        df = pd.DataFrame(scraping_progress['extracted_data'])
+        # First try from scraping progress
+        if scraping_progress.get('extracted_data'):
+            extracted_data = scraping_progress.get('extracted_data', [])
+            print(f"[DEBUG] Found {len(extracted_data)} records in scraping_progress")
+        
+        # Try from web communicator
+        if not extracted_data and web_communicator and hasattr(web_communicator, 'extracted_rows'):
+            extracted_data = web_communicator.extracted_rows or []
+            print(f"[DEBUG] Found {len(extracted_data)} records in web_communicator")
+        
+        # Try to find saved Excel files in output directory
+        if not extracted_data:
+            try:
+                # Look for Excel files in various locations
+                search_paths = [
+                    '/tmp/*GMS output*.xlsx',
+                    '*GMS output*.xlsx', 
+                    'output/*GMS output*.xlsx',
+                    '../output/*GMS output*.xlsx'
+                ]
+                
+                excel_files = []
+                for path_pattern in search_paths:
+                    excel_files.extend(glob.glob(path_pattern))
+                
+                if excel_files:
+                    # Return the most recent Excel file
+                    latest_file = max(excel_files, key=os.path.getctime)
+                    print(f"[DEBUG] Found existing Excel file: {latest_file}")
+                    
+                    return send_file(
+                        latest_file,
+                        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                        as_attachment=True,
+                        download_name=f'google_maps_scraper_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+                    )
+            except Exception as file_error:
+                print(f"[DEBUG] File search failed: {file_error}")
+        
+        if not extracted_data:
+            return {"error": "No data available to download. Please run a scraping operation first."}, 404
+        
+        # Create Excel file from extracted data
+        df = pd.DataFrame(extracted_data)
         output = BytesIO()
         
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
@@ -481,7 +544,7 @@ def download_excel():
             output,
             mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             as_attachment=True,
-            download_name='google_maps_scraper_results.xlsx'
+            download_name=f'google_maps_scraper_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
         )
         
     except Exception as e:

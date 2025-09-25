@@ -624,6 +624,14 @@ class Scroller:
                         self.parser.finalData = formatted_data
                         Communicator.show_message(message=f"[DEBUG] Saved {len(formatted_data)} businesses as backup data")
                         
+                        # Also save to web communicator for web interface
+                        try:
+                            if hasattr(Communicator, 'frontend_object') and Communicator.frontend_object:
+                                Communicator.frontend_object.extracted_rows = formatted_data
+                                Communicator.show_message(message=f"[DEBUG] Saved data to web communicator for display")
+                        except Exception as web_save_error:
+                            Communicator.show_message(message=f"[DEBUG] Web communicator save failed: {web_save_error}")
+                        
                         # Force save to file immediately
                         try:
                             self.parser.init_data_saver()
@@ -681,6 +689,14 @@ class Scroller:
                             self.__init_parser()
                             self.parser.finalData = simple_formatted
                             Communicator.show_message(message=f"[DEBUG] Saved {len(simple_formatted)} businesses from simple extraction")
+                            
+                            # Also save to web communicator for web interface
+                            try:
+                                if hasattr(Communicator, 'frontend_object') and Communicator.frontend_object:
+                                    Communicator.frontend_object.extracted_rows = simple_formatted
+                                    Communicator.show_message(message=f"[DEBUG] Saved simple extraction data to web communicator for display")
+                            except Exception as web_save_error:
+                                Communicator.show_message(message=f"[DEBUG] Web communicator simple save failed: {web_save_error}")
                             
                             # Force save simple extraction too
                             try:
