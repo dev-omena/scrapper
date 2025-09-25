@@ -255,7 +255,23 @@ class Scroller:
                             break
                         
             except Exception as e:
-                Communicator.show_message(message=f"[DEBUG] Error on attempt {attempt + 1}: {str(e)}")
+                error_msg = str(e)
+                Communicator.show_message(message=f"[DEBUG] Error on attempt {attempt + 1}: {error_msg}")
+                
+                # If we get DevTools disconnection errors in Railway, trigger fallback immediately
+                if is_railway and ("disconnected: not connected to DevTools" in error_msg or "DevTools" in error_msg):
+                    Communicator.show_message(message="[DEBUG] DevTools disconnection detected in Railway - triggering immediate fallback analysis")
+                    
+                    # Try to check if driver is still responsive
+                    try:
+                        current_url = self.driver.current_url
+                        Communicator.show_message(message=f"[DEBUG] Driver still responsive, current URL: {current_url[:100]}...")
+                    except Exception as driver_error:
+                        Communicator.show_message(message=f"[DEBUG] Driver completely unresponsive: {driver_error}")
+                        # Driver is dead, can't do much more
+                        return
+                    
+                    break  # Exit the retry loop and go to fallback
                 
         if scrollAbleElement is None:
              # Final check - maybe Google Maps itself is showing no results
@@ -291,44 +307,61 @@ class Scroller:
              if is_railway:
                  Communicator.show_message(message="[DEBUG] Railway fallback - attempting to extract visible results...")
                  
-                 # First, let's see what's actually on the page
-                 page_analysis = self.driver.execute_script(
-                     """
-                     return {
-                         title: document.title,
-                         url: window.location.href,
-                         bodyText: document.body.innerText.substring(0, 2000),
-                         innerHTML: document.body.innerHTML.substring(0, 3000),
-                         allLinks: Array.from(document.querySelectorAll('a')).slice(0, 50).map(a => ({
-                             href: a.href,
-                             text: a.innerText.substring(0, 100),
-                             hasPlace: a.href.includes('place'),
-                             className: a.className,
-                             id: a.id
-                         })),
-                         divCount: document.querySelectorAll('div').length,
-                         hasNoResults: document.body.innerText.includes('No results') || 
-                                      document.body.innerText.includes('لم يتم العثور') ||
-                                      document.body.innerText.includes('Couldn\\'t find'),
-                         allDivs: Array.from(document.querySelectorAll('div[data-result-index], div[jsaction], div[role], div[aria-label]')).slice(0, 20).map(div => ({
-                             className: div.className,
-                             id: div.id,
-                             role: div.getAttribute('role'),
-                             ariaLabel: div.getAttribute('aria-label'),
-                             dataResultIndex: div.getAttribute('data-result-index'),
-                             jsaction: div.getAttribute('jsaction'),
-                             text: div.innerText.substring(0, 150)
-                         })),
-                         searchResults: Array.from(document.querySelectorAll('[data-result-index], .section-result, [role="article"], .result, [aria-label*="result"]')).slice(0, 10).map(el => ({
-                             tagName: el.tagName,
-                             className: el.className,
-                             id: el.id,
-                             text: el.innerText.substring(0, 200),
-                             innerHTML: el.innerHTML.substring(0, 300)
-                         }))
-                     };
-                     """
-                 )
+                 # Check if driver is still responsive before trying JavaScript
+                 try:
+                     driver_responsive = True
+                     test_url = self.driver.current_url
+                     Communicator.show_message(message=f"[DEBUG] Driver responsive, current URL: {test_url[:100]}...")
+                 except Exception as e:
+                     driver_responsive = False
+                     Communicator.show_message(message=f"[DEBUG] Driver not responsive: {e}")
+                 
+                 if driver_responsive:
+                     # First, let's see what's actually on the page
+                     try:
+                         page_analysis = self.driver.execute_script(
+                             """
+                             return {
+                                 title: document.title,
+                                 url: window.location.href,
+                                 bodyText: document.body.innerText.substring(0, 2000),
+                                 innerHTML: document.body.innerHTML.substring(0, 3000),
+                                 allLinks: Array.from(document.querySelectorAll('a')).slice(0, 50).map(a => ({
+                                     href: a.href,
+                                     text: a.innerText.substring(0, 100),
+                                     hasPlace: a.href.includes('place'),
+                                     className: a.className,
+                                     id: a.id
+                                 })),
+                                 divCount: document.querySelectorAll('div').length,
+                                 hasNoResults: document.body.innerText.includes('No results') || 
+                                                  document.body.innerText.includes('لم يتم العثور') ||
+                                                  document.body.innerText.includes('Couldn\\'t find'),
+                                 allDivs: Array.from(document.querySelectorAll('div[data-result-index], div[jsaction], div[role], div[aria-label]')).slice(0, 20).map(div => ({
+                                     className: div.className,
+                                     id: div.id,
+                                     role: div.getAttribute('role'),
+                                     ariaLabel: div.getAttribute('aria-label'),
+                                     dataResultIndex: div.getAttribute('data-result-index'),
+                                     jsaction: div.getAttribute('jsaction'),
+                                     text: div.innerText.substring(0, 150)
+                                 })),
+                                 searchResults: Array.from(document.querySelectorAll('[data-result-index], .section-result, [role="article"], .result, [aria-label*="result"]')).slice(0, 10).map(el => ({
+                                     tagName: el.tagName,
+                                     className: el.className,
+                                     id: el.id,
+                                     text: el.innerText.substring(0, 200),
+                                     innerHTML: el.innerHTML.substring(0, 300)
+                                 }))
+                             };
+                             """
+                         )
+                     except Exception as js_error:
+                         Communicator.show_message(message=f"[DEBUG] JavaScript execution failed: {js_error}")
+                         page_analysis = {"error": "JavaScript failed", "title": "Unknown", "url": "Unknown"}
+                 else:
+                     Communicator.show_message(message="[DEBUG] Driver not responsive - skipping JavaScript analysis")
+                     page_analysis = {"error": "Driver not responsive", "title": "Unknown", "url": "Unknown"}
                  
                  Communicator.show_message(message=f"[DEBUG] === DETAILED RAILWAY PAGE ANALYSIS ===")
                  Communicator.show_message(message=f"[DEBUG] Title: {page_analysis.get('title', 'Unknown')}")
