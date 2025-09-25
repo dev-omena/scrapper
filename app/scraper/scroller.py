@@ -315,6 +315,45 @@ class Scroller:
                  except Exception as e:
                      driver_responsive = False
                      Communicator.show_message(message=f"[DEBUG] Driver not responsive: {e}")
+                     
+                     # Try to get basic page information without JavaScript
+                     Communicator.show_message(message="[DEBUG] Attempting to get basic page info without JavaScript...")
+                     try:
+                         # Try to get basic page source and title using Selenium methods
+                         page_title = self.driver.title if hasattr(self.driver, 'title') else "Unknown"
+                         page_source = self.driver.page_source if hasattr(self.driver, 'page_source') else ""
+                         
+                         Communicator.show_message(message=f"[DEBUG] Basic page info - Title: {page_title}")
+                         Communicator.show_message(message=f"[DEBUG] Page source length: {len(page_source)} characters")
+                         
+                         # Look for place links in the page source using string search
+                         place_links = []
+                         if page_source:
+                             import re
+                             # Look for Google Maps place URLs in the HTML
+                             place_pattern = r'href="[^"]*maps/place/[^"]*"'
+                             matches = re.findall(place_pattern, page_source)
+                             for match in matches[:10]:  # Limit to first 10
+                                 # Extract the URL from href="..."
+                                 url = match.split('"')[1]
+                                 if url.startswith('/'):
+                                     url = 'https://www.google.com' + url
+                                 place_links.append(url)
+                             
+                             Communicator.show_message(message=f"[DEBUG] Found {len(place_links)} place links in HTML source")
+                             for i, link in enumerate(place_links[:3]):
+                                 Communicator.show_message(message=f"[DEBUG] Place Link {i+1}: {link[:100]}...")
+                         
+                         # If we found place links, try to use them
+                         if place_links:
+                             Communicator.show_message(message=f"[DEBUG] Using {len(place_links)} place links from HTML source")
+                             self.__allResultsLinks = place_links
+                             self.__init_parser()
+                             self.start_parsing()
+                             return
+                         
+                     except Exception as basic_error:
+                         Communicator.show_message(message=f"[DEBUG] Basic page info extraction failed: {basic_error}")
                  
                  if driver_responsive:
                      # First, let's see what's actually on the page
