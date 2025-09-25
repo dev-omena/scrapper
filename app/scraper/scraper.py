@@ -630,6 +630,11 @@ class Backend(Base):
     def mainscraping(self):
         try:
             querywithplus = "+".join(self.searchquery.split())
+            
+            # Railway debugging - log the search query
+            if os.environ.get('RAILWAY_ENVIRONMENT'):
+                Communicator.show_message(f"[DEBUG] Railway search query: '{self.searchquery}'")
+                Communicator.show_message(f"[DEBUG] Query with plus: '{querywithplus}'")
 
             """
             link of page variable contains the link of page of google maps that user wants to scrape.
@@ -637,7 +642,12 @@ class Backend(Base):
             """
 
             # Use URL parameters to bypass consent page on Railway
-            link_of_page = f"https://www.google.com/maps/search/{querywithplus}/?hl=en&gl=US&consent=PENDING&continue=https://www.google.com/maps"
+            if os.environ.get('RAILWAY_ENVIRONMENT'):
+                # Try different URL format for Railway that might work better
+                link_of_page = f"https://www.google.com/maps/search/{querywithplus}?hl=en&gl=US"
+                Communicator.show_message(f"[DEBUG] Railway URL: {link_of_page}")
+            else:
+                link_of_page = f"https://www.google.com/maps/search/{querywithplus}/?hl=en&gl=US&consent=PENDING&continue=https://www.google.com/maps"
 
             # ==========================================
 

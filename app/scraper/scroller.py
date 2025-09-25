@@ -290,32 +290,186 @@ class Scroller:
              # Railway fallback - try to extract any visible results without scrolling
              if is_railway:
                  Communicator.show_message(message="[DEBUG] Railway fallback - attempting to extract visible results...")
+                 
+                 # First, let's see what's actually on the page
+                 page_analysis = self.driver.execute_script(
+                     """
+                     return {
+                         title: document.title,
+                         url: window.location.href,
+                         bodyText: document.body.innerText.substring(0, 2000),
+                         innerHTML: document.body.innerHTML.substring(0, 3000),
+                         allLinks: Array.from(document.querySelectorAll('a')).slice(0, 50).map(a => ({
+                             href: a.href,
+                             text: a.innerText.substring(0, 100),
+                             hasPlace: a.href.includes('place'),
+                             className: a.className,
+                             id: a.id
+                         })),
+                         divCount: document.querySelectorAll('div').length,
+                         hasNoResults: document.body.innerText.includes('No results') || 
+                                      document.body.innerText.includes('لم يتم العثور') ||
+                                      document.body.innerText.includes('Couldn\\'t find'),
+                         allDivs: Array.from(document.querySelectorAll('div[data-result-index], div[jsaction], div[role], div[aria-label]')).slice(0, 20).map(div => ({
+                             className: div.className,
+                             id: div.id,
+                             role: div.getAttribute('role'),
+                             ariaLabel: div.getAttribute('aria-label'),
+                             dataResultIndex: div.getAttribute('data-result-index'),
+                             jsaction: div.getAttribute('jsaction'),
+                             text: div.innerText.substring(0, 150)
+                         })),
+                         searchResults: Array.from(document.querySelectorAll('[data-result-index], .section-result, [role="article"], .result, [aria-label*="result"]')).slice(0, 10).map(el => ({
+                             tagName: el.tagName,
+                             className: el.className,
+                             id: el.id,
+                             text: el.innerText.substring(0, 200),
+                             innerHTML: el.innerHTML.substring(0, 300)
+                         }))
+                     };
+                     """
+                 )
+                 
+                 Communicator.show_message(message=f"[DEBUG] === DETAILED RAILWAY PAGE ANALYSIS ===")
+                 Communicator.show_message(message=f"[DEBUG] Title: {page_analysis.get('title', 'Unknown')}")
+                 Communicator.show_message(message=f"[DEBUG] URL: {page_analysis.get('url', 'Unknown')}")
+                 Communicator.show_message(message=f"[DEBUG] Has No Results: {page_analysis.get('hasNoResults', False)}")
+                 Communicator.show_message(message=f"[DEBUG] Div Count: {page_analysis.get('divCount', 0)}")
+                 Communicator.show_message(message=f"[DEBUG] Body Text Sample (first 500 chars): {page_analysis.get('bodyText', '')[:500]}...")
+                 Communicator.show_message(message=f"[DEBUG] HTML Sample (first 800 chars): {page_analysis.get('innerHTML', '')[:800]}...")
+                 
+                 # Show detailed link analysis
+                 all_links = page_analysis.get('allLinks', [])
+                 place_links = [link for link in all_links if link.get('hasPlace', False)]
+                 Communicator.show_message(message=f"[DEBUG] Found {len(place_links)} place links out of {len(all_links)} total links")
+                 
+                 # Show ALL links for debugging (not just place links)
+                 for i, link in enumerate(all_links[:10]):  # Show first 10 links
+                     Communicator.show_message(message=f"[DEBUG] Link {i+1}: href='{link.get('href', 'No href')[:100]}' text='{link.get('text', 'No text')[:50]}' class='{link.get('className', 'No class')[:30]}'")
+                 
+                 # Show search result elements
+                 search_results = page_analysis.get('searchResults', [])
+                 Communicator.show_message(message=f"[DEBUG] Found {len(search_results)} search result elements")
+                 for i, result in enumerate(search_results[:5]):
+                     Communicator.show_message(message=f"[DEBUG] Search Result {i+1}: {result.get('tagName', 'Unknown')} class='{result.get('className', 'No class')[:50]}' text='{result.get('text', 'No text')[:100]}'")
+                 
+                 # Show interesting divs
+                 all_divs = page_analysis.get('allDivs', [])
+                 Communicator.show_message(message=f"[DEBUG] Found {len(all_divs)} interesting divs")
+                 for i, div in enumerate(all_divs[:5]):
+                     Communicator.show_message(message=f"[DEBUG] Div {i+1}: class='{div.get('className', 'No class')[:50]}' role='{div.get('role', 'No role')}' aria-label='{div.get('ariaLabel', 'No aria')[:50]}'")
+                 
+                 # Take a screenshot for debugging
+                 try:
+                     import tempfile
+                     screenshot_path = "/tmp/railway_google_maps_debug.png"
+                     self.driver.save_screenshot(screenshot_path)
+                     Communicator.show_message(message=f"[DEBUG] Screenshot saved to: {screenshot_path}")
+                     
+                     # Also save the full page source for analysis
+                     page_source_path = "/tmp/railway_google_maps_source.html"
+                     with open(page_source_path, 'w', encoding='utf-8') as f:
+                         f.write(self.driver.page_source)
+                     Communicator.show_message(message=f"[DEBUG] Page source saved to: {page_source_path}")
+                     
+                 except Exception as e:
+                     Communicator.show_message(message=f"[DEBUG] Failed to save screenshot/source: {e}")
+                 
+                 # More aggressive link extraction
                  visible_results = self.driver.execute_script(
                      """
                      var results = [];
                      var selectors = [
                          'a[data-result-index]',
                          'a[href*="/maps/place/"]',
-                         'div[data-result-index]',
-                         '.section-result',
-                         '[role="article"]',
-                         'a[jsaction*="click"]'
+                         'a[href*="place/"]',
+                         'div[data-result-index] a',
+                         '.section-result a',
+                         '[role="article"] a',
+                         'a[jsaction*="click"]',
+                         '[data-value] a',
+                         '.section-listbox a',
+                         '[aria-label*="result"] a'
                      ];
                      
-                     selectors.forEach(function(selector) {
+                     selectors.forEach(function(selector, index) {
                          var elements = document.querySelectorAll(selector);
-                         for (var i = 0; i < Math.min(elements.length, 10); i++) {
+                         console.log('Selector', index, selector, 'found', elements.length, 'elements');
+                         for (var i = 0; i < Math.min(elements.length, 5); i++) {
                              var el = elements[i];
-                             var href = el.href || (el.querySelector('a') ? el.querySelector('a').href : '');
-                             if (href && href.includes('maps/place')) {
+                             var href = el.href || '';
+                             if (href && (href.includes('maps/place') || href.includes('/place/'))) {
                                  results.push(href);
                              }
                          }
                      });
                      
+                     // Also try to find any clickable elements with place-like text
+                     var allClickable = document.querySelectorAll('a, [role="button"], [onclick], [jsaction]');
+                     for (var j = 0; j < Math.min(allClickable.length, 100); j++) {
+                         var el = allClickable[j];
+                         var href = el.href || '';
+                         var text = (el.innerText || el.textContent || '').toLowerCase();
+                         
+                         if (href && (href.includes('maps/place') || href.includes('/place/'))) {
+                             results.push(href);
+                         }
+                     }
+                     
                      return [...new Set(results)]; // Remove duplicates
                      """
                  )
+                 
+                 Communicator.show_message(message=f"[DEBUG] Aggressive extraction found {len(visible_results)} results")
+                 for i, result in enumerate(visible_results[:3]):
+                     Communicator.show_message(message=f"[DEBUG] Extracted Result {i+1}: {result[:100]}...")
+                 
+                 # If no place links found, try to extract business information directly
+                 if not visible_results or len(visible_results) == 0:
+                     Communicator.show_message(message="[DEBUG] No place links found, trying direct business extraction...")
+                     business_data = self.driver.execute_script(
+                         """
+                         var businesses = [];
+                         var textNodes = [];
+                         
+                         // Look for text that might be business names or addresses
+                         function extractTextFromElement(element, depth) {
+                             if (depth > 3) return; // Limit recursion depth
+                             
+                             var text = element.innerText || element.textContent || '';
+                             if (text && text.length > 5 && text.length < 200) {
+                                 // Look for patterns that might be business names
+                                 if (text.match(/café|coffee|restaurant|shop|store|hotel|مقهى|مطعم|فندق|محل/i)) {
+                                     textNodes.push({
+                                         text: text.trim(),
+                                         tagName: element.tagName,
+                                         className: element.className,
+                                         parent: element.parentElement ? element.parentElement.tagName : 'none'
+                                     });
+                                 }
+                             }
+                             
+                             // Recurse through children
+                             for (var i = 0; i < element.children.length && i < 10; i++) {
+                                 extractTextFromElement(element.children[i], depth + 1);
+                             }
+                         }
+                         
+                         // Search the entire document
+                         extractTextFromElement(document.body, 0);
+                         
+                         return {
+                             businessTexts: textNodes.slice(0, 10),
+                             totalFound: textNodes.length
+                         };
+                         """
+                     )
+                     
+                     business_texts = business_data.get('businessTexts', [])
+                     Communicator.show_message(message=f"[DEBUG] Found {len(business_texts)} potential business texts out of {business_data.get('totalFound', 0)} total")
+                     
+                     for i, biz in enumerate(business_texts[:5]):
+                         Communicator.show_message(message=f"[DEBUG] Business Text {i+1}: '{biz.get('text', 'No text')[:100]}' ({biz.get('tagName', 'Unknown')})")
                  
                  if visible_results and len(visible_results) > 0:
                      Communicator.show_message(message=f"[DEBUG] Found {len(visible_results)} visible results without scrolling")
