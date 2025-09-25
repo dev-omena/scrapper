@@ -278,6 +278,24 @@ class Backend(Base):
         if self.headlessMode == 1:
             options.add_argument("--headless=new")  # Use new headless mode
             
+        # Railway container specific options
+        if os.environ.get('RAILWAY_ENVIRONMENT'):
+            options.add_argument("--disable-dev-tools")
+            options.add_argument("--disable-logging")
+            options.add_argument("--silent")
+            options.add_argument("--disable-software-rasterizer")
+            options.add_argument("--disable-background-media-suspend")
+            options.add_argument("--disable-client-side-phishing-detection")
+            options.add_argument("--disable-component-extensions-with-background-pages")
+            options.add_argument("--disable-field-trial-config")
+            options.add_argument("--disable-hang-monitor")
+            options.add_argument("--disable-prompt-on-repost")
+            options.add_argument("--disable-domain-reliability")
+            options.add_argument("--no-crash-upload")
+            options.add_argument("--no-first-run")
+            options.add_argument("--no-default-browser-check")
+            print("🔧 Added Railway container-specific Chrome flags")
+            
         # Core stability options
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
@@ -400,7 +418,19 @@ class Backend(Base):
         chromedriver_path = os.environ.get("CHROMEDRIVER_PATH")
         if chromedriver_path and os.path.exists(chromedriver_path):
             print(f"[DEBUG] Using CHROMEDRIVER_PATH: {chromedriver_path}")
-            service = Service(chromedriver_path)
+            
+            # Add Railway-specific service args to prevent connection issues
+            service_args = []
+            if os.environ.get('RAILWAY_ENVIRONMENT'):
+                service_args.extend([
+                    '--disable-dev-shm-usage',
+                    '--no-sandbox',
+                    '--disable-gpu',
+                    '--disable-software-rasterizer'
+                ])
+                print(f"[DEBUG] Added Railway service args: {service_args}")
+            
+            service = Service(chromedriver_path, service_args=service_args)
             return webdriver.Chrome(service=service, options=options)
         
         # Try common system paths (prioritize /usr/bin for Railway)

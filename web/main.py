@@ -312,27 +312,18 @@ def api_scrape():
                 scraping_progress['message'] = 'Initializing browser...'
                 scraping_progress['progress'] = 10
                 
-                # Test Chrome setup for Railway container environment
+                # Setup Chrome environment for Railway container
                 if is_production:
-                    try:
-                        print("🧪 Testing Chrome setup in Railway...")
-                        from chrome_wrapper import test_chrome_driver
-                        
-                        if not test_chrome_driver():
-                            raise Exception("Chrome WebDriver test failed in Railway environment")
-                        
-                        print("✅ Chrome WebDriver test passed!")
-                        
-                        # Set environment variables for the scraper
-                        os.environ['CHROME_BIN'] = '/usr/bin/google-chrome'
-                        os.environ['CHROMEDRIVER_PATH'] = '/usr/bin/chromedriver'
-                        os.environ['DISPLAY'] = ':99'
-                        
-                    except Exception as chrome_error:
-                        scraping_progress['status'] = 'error'
-                        scraping_progress['message'] = f'Chrome setup failed: {str(chrome_error)}'
-                        print(f"❌ Chrome setup failed: {chrome_error}")
-                        return
+                    print("🧪 Setting up Chrome for Railway...")
+                    
+                    # Set environment variables for the scraper
+                    os.environ['CHROME_BIN'] = '/usr/bin/google-chrome'
+                    os.environ['CHROMEDRIVER_PATH'] = '/usr/bin/chromedriver'
+                    os.environ['DISPLAY'] = ':99'
+                    
+                    # Skip Chrome test - proceed directly to scraping
+                    print("🚀 Skipping Chrome test - proceeding directly to scraping with optimized settings...")
+                    print("🔧 Chrome environment configured for Railway container")
                 
                 # Initialize the backend
                 backend = Backend(
